@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-
+import { api } from './api'
+const tgUserId = (window?.Telegram?.WebApp?.initDataUnsafe?.user?.id) || 'demo-user'
 // === THEME ===
 const ACCENT = "#C6FF3E";
 const BG = "#0F1115";
