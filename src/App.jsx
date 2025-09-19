@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { api } from "./api";
 
-// aman saat build (Next/Vercel) karena cek typeof window dulu
 const tgUserId =
-  (typeof window !== "undefined" &&
-    window?.Telegram?.WebApp?.initDataUnsafe?.user?.id) ||
-  "demo-user";
+  (window?.Telegram?.WebApp?.initDataUnsafe?.user?.id) || "demo-user";
 
 // === THEME ===
 const ACCENT = "#C6FF3E";
 const BG = "#0F1115";
 const CARD = "#161922";
 const BORDER = "#23283C";
-const BORDER_SOFT = "#1E2536";
 
 // === INLINE ICONS (no external deps) ===
 const IconCheck = ({ size = 16, color = "currentColor" }) => (
@@ -54,7 +50,10 @@ const IconXAlt = ({ size = 20 }) => (
 const IconBear = ({ size = 20 }) => (
   <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden>
     <defs>
-      <linearGradient id="bgrad" x1="0" x2="1" y1="0" y2="1"><stop offset="0%" stopColor="#2dd3ff"/><stop offset="100%" stopColor="#0066ff"/></linearGradient>
+      <linearGradient id="bgrad" x1="0" x2="1" y1="0" y2="1">
+        <stop offset="0%" stopColor="#2dd3ff"/>
+        <stop offset="100%" stopColor="#0066ff"/>
+      </linearGradient>
     </defs>
     <g fill="url(#bgrad)">
       <path d="M19 17a7 7 0 0 1 9-5c2 1 3 3 4 5c1-2 2-4 4-5a7 7 0 0 1 9 5c3 2 6 6 6 11c0 9-8 17-23 17S6 37 6 28c0-5 3-9 6-11z"/>
@@ -67,7 +66,9 @@ const IconBear = ({ size = 20 }) => (
 );
 
 // === PRIMITIVES ===
-const IconDot = () => <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 999, background: ACCENT }} />;
+const IconDot = () => (
+  <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 999, background: ACCENT }} />
+);
 
 function TopBar({ title, onBack, showBack = false, showRight = false, extraRight = null }) {
   return (
@@ -83,7 +84,6 @@ function TopBar({ title, onBack, showBack = false, showRight = false, extraRight
         background: BG,
       }}
     >
-      {/* kiri: back icon only (tanpa teks), default hidden */}
       <div style={{ width: 40 }}>
         {showBack && (
           <button
@@ -106,43 +106,39 @@ function TopBar({ title, onBack, showBack = false, showRight = false, extraRight
         )}
       </div>
 
-      {/* title tengah */}
       <div style={{ color: "#fff", fontSize: 18, fontWeight: 800, textAlign: "center", flex: 1 }}>
         {title}
       </div>
 
-      {/* kanan: panah/extra, default hidden */}
       <div style={{ width: 40, textAlign: "right" }}>
         {showRight ? (extraRight || <IconChevronDown color="rgba(255,255,255,.6)" />) : null}
       </div>
     </div>
   );
 }
+
 function Badge({ children }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "2px 8px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: ACCENT + "22", color: "#EAFEE0", border: `1px solid ${ACCENT}55` }}>{children}</span>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "2px 8px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: ACCENT + "22", color: "#EAFEE0", border: `1px solid ${ACCENT}55` }}>
+      {children}
+    </span>
   );
 }
 function NeonButton({ children, onClick, disabled = false }) {
   return (
-    <button onClick={onClick} disabled={disabled} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: 0, background: disabled ? "#2A2E3E" : ACCENT, color: disabled ? "#95A0B5" : "#0C0F14", fontWeight: 800, boxShadow: disabled ? "none" : "0 0 24px rgba(198,255,62,.2)" }}>{children}</button>
+    <button onClick={onClick} disabled={disabled} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: 0, background: disabled ? "#2A2E3E" : ACCENT, color: disabled ? "#95A0B5" : "#0C0F14", fontWeight: 800, boxShadow: disabled ? "none" : "0 0 24px rgba(198,255,62,.2)" }}>
+      {children}
+    </button>
   );
 }
-function SectionTitle({ children }) { return <div style={{ color: "rgba(255,255,255,.9)", fontWeight: 700, fontSize: 14, margin: 16 }}>{children}</div>; }
+function SectionTitle({ children }) {
+  return <div style={{ color: "rgba(255,255,255,.9)", fontWeight: 700, fontSize: 14, margin: 16 }}>{children}</div>;
+}
 
 function TaskItem({ icon, title, reward, onClick, iconBg = ACCENT, iconColor = "#0C0F14" }) {
   return (
-    <button onClick={onClick} style={{ width: "100%", textAlign: "left" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "12px 16px",
-          background: "#121A26",                 // <-- gelap, bukan default yang keputihan
-          borderBottom: `1px solid ${BORDER_SOFT}` // <-- garis halus
-        }}
-      >
+    <button onClick={onClick} style={{ width: "100%", textAlign: "left", background: "transparent", border: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: CARD, borderBottom: "1px solid rgba(255,255,255,.06)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 36, height: 36, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: iconBg, color: iconColor }}>{icon}</div>
           <div style={{ minWidth: 0 }}>
@@ -161,7 +157,14 @@ function HomeScreen() {
   const rewards = [0.002, 0.004, 0.006, 0.008, 0.01, 0.012, 0.014, 0.016, 0.018];
   const [day, setDay] = useState(1);
   const [busy, setBusy] = useState(false);
-  const claim = () => { if (busy || day > 9) return; setBusy(true); setTimeout(() => { setBusy(false); setDay(d => Math.min(9, d + 1)); }, 250); };
+  const claim = () => {
+    if (busy || day > 9) return;
+    setBusy(true);
+    setTimeout(() => {
+      setBusy(false);
+      setDay((d) => Math.min(9, d + 1));
+    }, 250);
+  };
 
   return (
     <div style={{ minHeight: "100dvh", background: BG }}>
@@ -170,7 +173,9 @@ function HomeScreen() {
         <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 10, color: "#fff" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 8 }}>
             {rewards.map((amt, i) => {
-              const d = i + 1; const isPast = d < day; const isToday = d === day;
+              const d = i + 1;
+              const isPast = d < day;
+              const isToday = d === day;
               return (
                 <div key={d} style={{ position: "relative", width: "100%", paddingTop: "78%" }}>
                   <div style={{ position: "absolute", inset: 0, padding: 6 }}>
@@ -189,7 +194,9 @@ function HomeScreen() {
             })}
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-            <button onClick={claim} disabled={busy || day > 9} style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: 0, background: (busy || day > 9) ? "#2A2E3E" : ACCENT, color: (busy || day > 9) ? "#95A0B5" : "#0C0F14", fontWeight: 800 }}>{day <= 9 ? (busy ? "Processing…" : "Claim Day " + day) : "Completed"}</button>
+            <button onClick={claim} disabled={busy || day > 9} style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: 0, background: (busy || day > 9) ? "#2A2E3E" : ACCENT, color: (busy || day > 9) ? "#95A0B5" : "#0C0F14", fontWeight: 800 }}>
+              {day <= 9 ? (busy ? "Processing…" : "Claim Day " + day) : "Completed"}
+            </button>
           </div>
         </div>
       </div>
@@ -205,7 +212,6 @@ function EarnScreen() {
   const open = (kind) => setSheet({ open: true, kind, step: "join" });
   const close = () => setSheet({ open: false, kind: null, step: "join" });
 
-  // Join / Check -> backend
   const onPrimary = async () => {
     try {
       if (sheet.step === "join") {
@@ -258,56 +264,32 @@ function EarnScreen() {
     <div style={{ minHeight: "100dvh", background: BG }}>
       <TopBar title="Tasks" />
 
-      {/* First 2 tasks (ads/mascot) */}
-      <div
-        style={{
-          margin: 16,
-          borderRadius: 16,
-          overflow: "hidden",
-          border: `1px solid ${BORDER_SOFT}`,
-          background: "#111823"
-        }}
-      >
+      <div style={{ margin: 16, border: "1px solid rgba(255,255,255,.06)", borderRadius: 16, overflow: "hidden" }}>
         <TaskItem onClick={() => open("ads")} iconBg="#0B1530" iconColor="#fff" icon={<IconBear />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
         <TaskItem onClick={() => open("ads")} iconBg="#0B1530" iconColor="#fff" icon={<IconBear />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
       </div>
 
       <SectionTitle>Limited Tasks</SectionTitle>
-      <div
-        style={{
-          margin: "0 16px",
-          borderRadius: 16,
-          overflow: "hidden",
-          border: `1px solid ${BORDER_SOFT}`,
-          background: "#111823"
-        }}
-      >
+      <div style={{ margin: "0 16px", border: "1px solid rgba(255,255,255,.06)", borderRadius: 16, overflow: "hidden" }}>
         <TaskItem onClick={() => open("tg")} iconBg="#229ED9" iconColor="#fff" icon={<IconTelegram />} title="Subscribe Telegram channel" reward={<Badge><IconUSDT /> 0.002</Badge>} />
         <TaskItem onClick={() => open("x")} iconBg="#0B0B0B" iconColor="#fff" icon={<IconXAlt />} title="Subscribe Twitter" reward={<Badge><IconUSDT /> 0.002</Badge>} />
       </div>
 
       <SectionTitle>Partner Tasks</SectionTitle>
-      <div
-        style={{
-          margin: "0 16px",
-          borderRadius: 16,
-          overflow: "hidden",
-          border: `1px solid ${BORDER_SOFT}`,
-          background: "#111823"
-        }}
-      >
+      <div style={{ margin: "0 16px", border: "1px solid rgba(255,255,255,.06)", borderRadius: 16, overflow: "hidden" }}>
         <TaskItem onClick={() => open("tg")} iconBg="#1F6FE5" iconColor="#fff" icon={<IconTelegram />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
         <TaskItem onClick={() => open("x")} iconBg="#111111" iconColor="#fff" icon={<IconXAlt />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
         <TaskItem onClick={() => open("tg")} iconBg="#2D7D46" iconColor="#fff" icon={<IconTicket />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
         <TaskItem onClick={() => open("x")} iconBg="#8E44AD" iconColor="#fff" icon={<IconTicket />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
       </div>
 
-      {/* Bottom Sheet */}
       {sheet.open && (
         <div onClick={close} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", display: "flex", alignItems: "flex-end", zIndex: 50 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", background: BG, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, borderTop: `1px solid ${BORDER}` }}>
             <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
-              <div style={{ width: 64, height: 64, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: iconCircleBg, color: "#fff" }}>{iconEl}</div>
+              <div style={{ width: 64, height: 64, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: iconCircleBg, color: "#fff" }}>
+                {iconEl}
+              </div>
             </div>
             <div style={{ textAlign: "center", color: "#fff", fontSize: 22, fontWeight: 800, marginTop: 12 }}>{title}</div>
             <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 8, color: "#fff" }}>
@@ -331,7 +313,11 @@ function EarnScreen() {
 function FriendsScreen() {
   const refLink = "https://t.me/YourBot?start=ref123";
   const [copied, setCopied] = useState(false);
-  const copy = async () => { try { await navigator.clipboard.writeText(refLink); } catch { } setCopied(true); setTimeout(() => setCopied(false), 1200); };
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(refLink); } catch {}
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
 
   return (
     <div style={{ minHeight: "100dvh", background: BG }}>
@@ -345,9 +331,15 @@ function FriendsScreen() {
           <div style={{ color: "#D6DBEA" }}>Earn <span style={{ color: ACCENT, fontWeight: 800 }}>10%</span> of your friends earnings for life! Follow these simple steps to start:</div>
 
           <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
-            {[{ title: "1. Copy Your Link", desc: "Grab your unique referral link below." }, { title: "2. Share with Friends", desc: "Use Telegram, WhatsApp, or X to share your link." }, { title: "3. Earn Lifetime Rewards", desc: "Get 10% of your friends earnings forever once they join!" }].map((s, idx) => (
+            {[
+              { title: "1. Copy Your Link", desc: "Grab your unique referral link below." },
+              { title: "2. Share with Friends", desc: "Use Telegram, WhatsApp, or X to share your link." },
+              { title: "3. Earn Lifetime Rewards", desc: "Get 10% of your friends earnings forever once they join!" },
+            ].map((s, idx) => (
               <div key={idx} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <div style={{ width: 40, height: 40, borderRadius: 999, background: "#2A2E3E", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontWeight: 900, color: "#BFD6A6" }}>{idx + 1}</span></div>
+                <div style={{ width: 40, height: 40, borderRadius: 999, background: "#2A2E3E", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontWeight: 900, color: "#BFD6A6" }}>{idx + 1}</span>
+                </div>
                 <div>
                   <div style={{ fontWeight: 800 }}>{s.title}</div>
                   <div style={{ color: "#C7CCDA" }}>{s.desc}</div>
@@ -365,11 +357,16 @@ function FriendsScreen() {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 12 }}>
-            <button style={{ padding: "8px 10px", borderRadius: 999, background: "#229ED9", color: "#fff", fontSize: 12, fontWeight: 800, border: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><IconTelegram /> Telegram</button>
-            <button style={{ padding: "8px 10px", borderRadius: 999, background: "#25D366", color: "#0C0F14", fontSize: 12, fontWeight: 800, border: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#0C0F14" d="M17 3H7a4 4 0 0 0-4 4v10a4 4 0 0 0 4 4h10a4 4 0 0 0 4-4V7a4 4 0 0 0-4-4Zm-5 15a5 5 0 1 1 0-10a5 5 0  0 1 0 10Zm0-2.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 0 0 0 5Z"/></svg> WhatsApp
+            <button style={{ padding: "8px 10px", borderRadius: 999, background: "#229ED9", color: "#fff", fontSize: 12, fontWeight: 800, border: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <IconTelegram /> Telegram
             </button>
-            <button style={{ padding: "8px 10px", borderRadius: 999, background: "#0B0B0B", color: "#fff", fontSize: 12, fontWeight: 800, border: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><IconXAlt /> Twitter/X</button>
+            <button style={{ padding: "8px 10px", borderRadius: 999, background: "#25D366", color: "#0C0F14", fontSize: 12, fontWeight: 800, border: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#0C0F14" d="M17 3H7a4 4 0 0 0-4 4v10a4 4 0 0 0 4 4h10a4 4 0 0 0 4-4V7a4 4 0 0 0-4-4Zm-5 15a5 5 0 1 1 0-10a5 5 0 0 1 0 10Zm0-2.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 0 0 0 5Z"/></svg>
+              WhatsApp
+            </button>
+            <button style={{ padding: "8px 10px", borderRadius: 999, background: "#0B0B0B", color: "#fff", fontSize: 12, fontWeight: 800, border: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <IconXAlt /> Twitter/X
+            </button>
           </div>
         </div>
       </div>
@@ -387,8 +384,10 @@ function WalletScreen() {
   const [showPicker, setShowPicker] = useState(false);
 
   const canContinue = Number(amount) > 0 && address.trim().length > 0;
-  const pasteTo = async (setter) => { try { const t = await navigator.clipboard.readText(); setter(t); } catch {} };
-  const setMax = () => setAmount(String(0)); // ganti sesuai balance kamu
+  const pasteTo = async (setter) => {
+    try { const t = await navigator.clipboard.readText(); setter(t); } catch {}
+  };
+  const setMax = () => setAmount(String(0)); // set ke balance kamu
 
   const fieldWrap = { background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 12 };
 
@@ -403,18 +402,24 @@ function WalletScreen() {
         </div>
         <div style={{ ...fieldWrap, position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "#0E1726" }}><IconUSDT /></div>
+            <div style={{ width: 36, height: 36, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "#0E1726" }}>
+              <IconUSDT />
+            </div>
             <input type="number" inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ flex: 1, outline: "none", border: 0, background: "transparent", color: "#fff", fontSize: 18, fontWeight: 800, paddingRight: 64 }} />
           </div>
-          <button onClick={setMax} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", padding: "8px 12px", borderRadius: 10, border: `1px solid ${BORDER}`, background: "#2A2E3E", color: "#E6EAF6", fontWeight: 800 }}>Max</button>
+          <button onClick={setMax} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", padding: "8px 12px", borderRadius: 10, border: `1px solid ${BORDER}`, background: "#2A2E3E", color: "#E6EAF6", fontWeight: 800 }}>
+            Max
+          </button>
         </div>
 
         {/* Network */}
         <div style={{ marginTop: 16 }}>
           <div style={{ color: "#C7CCDA", fontWeight: 700, marginBottom: 8 }}>Network</div>
-          <button onClick={() => setShowPicker(true)} style={{ ...fieldWrap, width: "100%", textAlign: "left", padding: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <button onClick={() => setShowPicker(true)} style={{ ...fieldWrap, width: "100%", textAlign: "left", padding: 12, display: "flex", alignItems: "center", justifyContent: "space-between", background: CARD, border: `1px solid ${BORDER}` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 10, background: "#0E1726", display: "flex", alignItems: "center", justifyContent: "center" }}><IconUSDT /></div>
+              <div style={{ width: 28, height: 28, borderRadius: 10, background: "#0E1726", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <IconUSDT />
+              </div>
               <span style={{ color: "#E6EAF6", fontWeight: 800 }}>{network || "Select network"}</span>
             </div>
             <IconChevronDown color="rgba(255,255,255,.6)" />
@@ -427,7 +432,9 @@ function WalletScreen() {
           <div style={fieldWrap}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <input placeholder="Enter address" value={address} onChange={(e) => setAddress(e.target.value)} style={{ flex: 1, outline: "none", border: 0, background: "transparent", color: "#fff", fontSize: 14, fontWeight: 700 }} />
-              <button onClick={() => pasteTo(setAddress)} style={{ padding: "8px 12px", borderRadius: 10, border: `1px solid ${BORDER}`, background: "#2A2E3E", color: "#E6EAF6", fontWeight: 800 }}>Paste</button>
+              <button onClick={() => pasteTo(setAddress)} style={{ padding: "8px 12px", borderRadius: 10, border: `1px solid ${BORDER}`, background: "#2A2E3E", color: "#E6EAF6", fontWeight: 800 }}>
+                Paste
+              </button>
             </div>
           </div>
         </div>
@@ -438,28 +445,31 @@ function WalletScreen() {
           <div style={fieldWrap}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <input placeholder="Enter MEMO" value={memo} onChange={(e) => setMemo(e.target.value)} style={{ flex: 1, outline: "none", border: 0, background: "transparent", color: "#fff", fontSize: 14, fontWeight: 700 }} />
-              <button onClick={() => pasteTo(setMemo)} style={{ padding: "8px 12px", borderRadius: 10, border: `1px solid ${BORDER}`, background: "#2A2E3E", color: "#E6EAF6", fontWeight: 800 }}>Paste</button>
+              <button onClick={() => pasteTo(setMemo)} style={{ padding: "8px 12px", borderRadius: 10, border: `1px solid ${BORDER}`, background: "#2A2E3E", color: "#E6EAF6", fontWeight: 800 }}>
+                Paste
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Primary */}
         <div style={{ marginTop: 12 }}>
-          <NeonButton disabled={!canContinue} onClick={async () => {
-            try {
-              const payload = { userId: tgUserId, amount: Number(amount), address, memo, network };
-              const r = await api.withdraw.create(payload);
-              alert("Withdraw request submitted: " + r.id);
-            } catch (e) {
-              alert("Withdraw failed: " + (e?.data?.error || e.message));
-            }
-          }}>
-            {"Request withdraw"}
+          <NeonButton
+            disabled={!canContinue}
+            onClick={async () => {
+              try {
+                const payload = { userId: tgUserId, amount: Number(amount), address, memo, network };
+                const r = await api.withdraw.create(payload);
+                alert("Withdraw request submitted: " + r.id);
+              } catch (e) {
+                alert("Withdraw failed: " + (e?.data?.error || e.message));
+              }
+            }}
+          >
+            Request withdraw
           </NeonButton>
         </div>
       </div>
 
-      {/* Network picker */}
       {showPicker && (
         <div onClick={() => setShowPicker(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", display: "flex", alignItems: "flex-end", zIndex: 60 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", background: BG, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, borderTop: `1px solid ${BORDER}` }}>
@@ -503,14 +513,23 @@ function About() {
 
 // === NAV BAR ===
 const tabs = [
-  { key: "home", label: "Home", icon: (<svg width="20" height="20" viewBox="0 0 24 24"><path d="M4.5 11 12 5l7.5 6v7a2.5 2.5 0 0 1-2.5 2.5H7A2.5 2.5 0 0 1 4.5 18V11Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><path d="M9.75 21v-4.25a2.25 2.25 0  0 1 4.5 0V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M2.5 12.5 12 4l9.5 8.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>) },
-  { key: "earn", label: "Earn", icon: (<svg width="20" height="20" viewBox="0 0 24 24"><path d="M3.5 8.5h13.5a2.5 2.5 0 0 1 2.5 2.5v5.5A3.5 3.5 0 0 1 16 20.5H7A3.5 3.5 0  0 1 3.5 17V8.5Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><path d="M3.5 9.5V7.8c0-.94.76-1.7 1.7-1.7H14.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>) },
-  { key: "friends", label: "Refer", icon: (<svg width="20" height="20" viewBox="0 0 24 24"><path d="M15.5 8.5a3.5 3.5 0 1 1-7 0a3.5 3.5 0 0 1 7 0Z" stroke="currentColor" strokeWidth="1.6"/><path d="M3.5 20.5a7.5 7.5 0  0 1 17 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>) },
-  { key: "wallet", label: "Withdraw", icon: (<svg width="20" height="20" viewBox="0 0 24 24"><path d="M3.5 8.5h13.5a2.5 2.5 0  0 1 2.5 2.5v5.5A3.5 3.5 0 0 1 16 20.5H7A3.5 3.5 0  0 1 3.5 17V8.5Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><path d="M3.5 9.5V7.8c0-.94.76-1.7 1.7-1.7H14.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>) },
+  { key: "home", label: "Home", icon: (<svg width="20" height="20" viewBox="0 0 24 24"><path d="M4.5 11 12 5l7.5 6v7a2.5 2.5 0 0 1-2.5 2.5H7A2.5 2.5 0 0 1 4.5 18V11Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><path d="M9.75 21v-4.25a2.25 2.25 0 0 1 4.5 0V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M2.5 12.5 12 4l9.5 8.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>) },
+  { key: "earn", label: "Earn", icon: (<svg width="20" height="20" viewBox="0 0 24 24"><path d="M3.5 8.5h13.5a2.5 2.5 0 0 1 2.5 2.5v5.5A3.5 3.5 0  0 1 16 20.5H7A3.5 3.5 0  0 1 3.5 17V8.5Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><path d="M3.5 9.5V7.8c0-.94.76-1.7 1.7-1.7H14.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>) },
+  { key: "friends", label: "Refer", icon: (<svg width="20" height="20" viewBox="0 0 24 24"><path d="M15.5 8.5a3.5 3.5 0 1 1-7 0a3.5 3.5 0 0 1 7 0Z" stroke="currentColor" strokeWidth="1.6"/><path d="M3.5 20.5a7.5 7.5 0 0 1 17 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>) },
+  { key: "wallet", label: "Withdraw", icon: (<svg width="20" height="20" viewBox="0 0 24 24"><path d="M3.5 8.5h13.5a2.5 2.5 0  0 1 2.5 2.5v5.5A3.5 3.5 0 0 1 16 20.5H7A3.5 3.5 0 0 1 3.5 17V8.5Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><path d="M3.5 9.5V7.8c0-.94.76-1.7 1.7-1.7H14.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>) },
   { key: "about", label: "About", icon: (<svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6"/><path d="M12 10.5v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/><circle cx="12" cy="7.5" r="1.2" fill="currentColor"/></svg>) },
 ];
 
 function BottomBar({ value, onChange }) {
+  // penting: hapus background putih default <button> di mobile
+  const btnBase = {
+    background: "transparent",
+    border: 0,
+    outline: "none",
+    WebkitAppearance: "none",
+    appearance: "none",
+  };
+
   return (
     <div style={{ position: "fixed", left: 0, right: 0, zIndex: 40, bottom: "calc(env(safe-area-inset-bottom) + 16px)" }}>
       <div
@@ -518,14 +537,12 @@ function BottomBar({ value, onChange }) {
           margin: "0 auto",
           width: "92%",
           maxWidth: 480,
-          border: `1px solid ${BORDER_SOFT}`,
-          background: "rgba(10,14,22,.68)",        // gelap transparan
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
+          border: `1px solid #202538`,
+          background: "rgba(20,26,35,.95)",
           borderRadius: 16,
           padding: "8px 12px",
           display: "flex",
-          alignItems: "center",
+          gap: 8,
           justifyContent: "space-between",
           boxShadow: "0 12px 30px rgba(0,0,0,.35)",
         }}
@@ -536,7 +553,16 @@ function BottomBar({ value, onChange }) {
             <button
               key={t.key}
               onClick={() => onChange(t.key)}
-              style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "4px 0", color: active ? "#fff" : "rgba(255,255,255,.6)" }}
+              style={{
+                ...btnBase,
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 4,
+                padding: "4px 0",
+                color: active ? "#fff" : "rgba(255,255,255,.6)",
+              }}
             >
               <div
                 style={{
@@ -568,17 +594,12 @@ export default function App() {
 
   useEffect(() => {
     document.body.style.background = BG;
-    // Telegram WebApp header & back button
+    // full-screen saat di Telegram
     try {
-      const tg = window?.Telegram?.WebApp;
-      tg?.expand?.();
-      tg?.BackButton?.hide?.();
-      tg?.setBackgroundColor?.(BG);
-      tg?.setHeaderColor?.(BG);
+      const wa = window.Telegram?.WebApp;
+      wa?.ready();
+      wa?.expand();
     } catch {}
-    // theme-color meta (status bar Android)
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", BG);
   }, []);
 
   return (
