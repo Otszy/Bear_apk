@@ -264,19 +264,19 @@ function EarnScreen() {
     <div style={{ minHeight: "100dvh", background: BG }}>
       <TopBar title="Tasks" />
 
-      <div style={{ margin: 16, border: "1px solid rgba(255,255,255,.06)", borderRadius: 16, overflow: "hidden" }}>
+      <div style={{ margin: 16, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
         <TaskItem onClick={() => open("ads")} iconBg="#0B1530" iconColor="#fff" icon={<IconBear />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
         <TaskItem onClick={() => open("ads")} iconBg="#0B1530" iconColor="#fff" icon={<IconBear />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
       </div>
 
       <SectionTitle>Limited Tasks</SectionTitle>
-      <div style={{ margin: "0 16px", border: "1px solid rgba(255,255,255,.06)", borderRadius: 16, overflow: "hidden" }}>
+      <div style={{ margin: 16, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
         <TaskItem onClick={() => open("tg")} iconBg="#229ED9" iconColor="#fff" icon={<IconTelegram />} title="Subscribe Telegram channel" reward={<Badge><IconUSDT /> 0.002</Badge>} />
         <TaskItem onClick={() => open("x")} iconBg="#0B0B0B" iconColor="#fff" icon={<IconXAlt />} title="Subscribe Twitter" reward={<Badge><IconUSDT /> 0.002</Badge>} />
       </div>
 
       <SectionTitle>Partner Tasks</SectionTitle>
-      <div style={{ margin: "0 16px", border: "1px solid rgba(255,255,255,.06)", borderRadius: 16, overflow: "hidden" }}>
+      <div style={{ margin: 16, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
         <TaskItem onClick={() => open("tg")} iconBg="#1F6FE5" iconColor="#fff" icon={<IconTelegram />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
         <TaskItem onClick={() => open("x")} iconBg="#111111" iconColor="#fff" icon={<IconXAlt />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
         <TaskItem onClick={() => open("tg")} iconBg="#2D7D46" iconColor="#fff" icon={<IconTicket />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
