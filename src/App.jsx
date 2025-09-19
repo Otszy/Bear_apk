@@ -147,55 +147,297 @@ function HomeScreen() {
 // === EARN ===
 function EarnScreen() {
   const [sheet, setSheet] = useState({ open: false, kind: null, step: "join" });
+
   const open = (kind) => setSheet({ open: true, kind, step: "join" });
   const close = () => setSheet({ open: false, kind: null, step: "join" });
-  const onPrimary = () => setSheet(s => s.step === "join" ? { ...s, step: "check" } : (close(), s));
+
+  // NEW: handle Join/Check ke backend
+  const onPrimary = async () => {
+    try {
+      if (sheet.step === "join") {
+        if (sheet.kind === "tg") {
+          const { joinUrl } = await api.subscribe.start("tg");
+          window.open(joinUrl, "_blank");
+          setSheet((s) => ({ ...s, step: "check" }));
+        } else if (sheet.kind === "x") {
+          const { joinUrl } = await api.subscribe.start("x");
+          window.open(joinUrl, "_blank");
+          setSheet((s) => ({ ...s, step: "check" }));
+        } else if (sheet.kind === "ads") {
+          const { session, sig, minWatchMs, adUrl } = await api.ads.start(tgUserId);
+          window.__adSession = { session, sig, minWatchMs };
+          window.open(adUrl, "_blank");
+          setSheet((s) => ({ ...s, step: "check" }));
+        }
+      } else {
+        if (sheet.kind === "tg") {
+          const r = await api.subscribe.verify("tg", tgUserId);
+          alert(r.valid ? `Reward granted: ${r.amount} USDT` : "Belum join channel");
+          if (r.valid) close();
+        } else if (sheet.kind === "x") {
+          const r = await api.subscribe.verify("x", tgUserId);
+          alert(`Reward granted: ${r.amount} USDT`);
+          close();
+        } else if (sheet.kind === "ads") {
+          const s = window.__adSession;
+          if (!s) return alert("Session not found");
+          const r = await api.ads.verify(s.session, s.sig);
+          alert(`Reward granted: ${r.amount} USDT`);
+          close();
+        }
+      }
+    } catch (e) {
+      alert(e?.data?.error || e.message || "Error");
+    }
+  };
 
   const isTG = sheet.kind === "tg";
-  const title = isTG ? "Subscribe Telegram channel" : "Subscribe Twitter";
-  const primary = sheet.step === "join" ? "Join" : "Check";
-  const iconCircleBg = isTG ? "#229ED9" : "#0B0B0B";
-  const iconEl = isTG ? <IconTelegram /> : <IconXAlt />;
+  const isX = sheet.kind === "x";
+  const isAds = sheet.kind === "ads";
+
+  const title = isTG
+    ? "Subscribe Telegram channel"
+    : isX
+    ? "Subscribe Twitter"
+    : "Watch Ad";
+
+  const primary = sheet.step === "join" ? (isAds ? "Watch" : "Join") : "Check";
+  const iconCircleBg = isTG ? "#229ED9" : isX ? "#0B0B0B" : "#222A3A";
+  const iconEl = isTG ? <IconTelegram /> : isX ? <IconXAlt /> : <IconTicket />;
 
   return (
     <div style={{ minHeight: "100dvh", background: BG }}>
       <TopBar title="Tasks" />
 
-      {/* First 2 tasks with mascot */}
-      <div style={{ margin: 16, border: "1px solid rgba(255,255,255,.06)", borderRadius: 16, overflow: "hidden" }}>
-        <TaskItem onClick={() => open("tg")} iconBg="#0B1530" iconColor="#fff" icon={<IconBear />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
-        <TaskItem onClick={() => open("x")} iconBg="#0B1530" iconColor="#fff" icon={<IconBear />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
+      {/* First 2 tasks (contoh: iklan) */}
+      <div
+        style={{
+          margin: 16,
+          border: "1px solid rgba(255,255,255,.06)",
+          borderRadius: 16,
+          overflow: "hidden",
+        }}
+      >
+        <TaskItem
+          onClick={() => open("ads")}
+          iconBg="#0B1530"
+          iconColor="#fff"
+          icon={<IconBear />}
+          title="Complete task"
+          reward={
+            <Badge>
+              <IconUSDT /> 0.002
+            </Badge>
+          }
+        />
+        <TaskItem
+          onClick={() => open("ads")}
+          iconBg="#0B1530"
+          iconColor="#fff"
+          icon={<IconBear />}
+          title="Complete task"
+          reward={
+            <Badge>
+              <IconUSDT /> 0.002
+            </Badge>
+          }
+        />
       </div>
 
       <SectionTitle>Limited Tasks</SectionTitle>
-      <div style={{ margin: "0 16px", border: "1px solid rgba(255,255,255,.06)", borderRadius: 16, overflow: "hidden" }}>
-        <TaskItem onClick={() => open("tg")} iconBg="#229ED9" iconColor="#fff" icon={<IconTelegram />} title="Subscribe Telegram channel" reward={<Badge><IconUSDT /> 0.002</Badge>} />
-        <TaskItem onClick={() => open("x")} iconBg="#0B0B0B" iconColor="#fff" icon={<IconXAlt />} title="Subscribe Twitter" reward={<Badge><IconUSDT /> 0.002</Badge>} />
+      <div
+        style={{
+          margin: "0 16px",
+          border: "1px solid rgba(255,255,255,.06)",
+          borderRadius: 16,
+          overflow: "hidden",
+        }}
+      >
+        <TaskItem
+          onClick={() => open("tg")}
+          iconBg="#229ED9"
+          iconColor="#fff"
+          icon={<IconTelegram />}
+          title="Subscribe Telegram channel"
+          reward={
+            <Badge>
+              <IconUSDT /> 0.002
+            </Badge>
+          }
+        />
+        <TaskItem
+          onClick={() => open("x")}
+          iconBg="#0B0B0B"
+          iconColor="#fff"
+          icon={<IconXAlt />}
+          title="Subscribe Twitter"
+          reward={
+            <Badge>
+              <IconUSDT /> 0.002
+            </Badge>
+          }
+        />
       </div>
 
       <SectionTitle>Partner Tasks</SectionTitle>
-      <div style={{ margin: "0 16px", border: "1px solid rgba(255,255,255,.06)", borderRadius: 16, overflow: "hidden" }}>
-        <TaskItem onClick={() => open("tg")} iconBg="#1F6FE5" iconColor="#fff" icon={<IconTelegram />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
-        <TaskItem onClick={() => open("x")} iconBg="#111111" iconColor="#fff" icon={<IconXAlt />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
-        <TaskItem onClick={() => open("tg")} iconBg="#2D7D46" iconColor="#fff" icon={<IconTicket />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
-        <TaskItem onClick={() => open("x")} iconBg="#8E44AD" iconColor="#fff" icon={<IconTicket />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
+      <div
+        style={{
+          margin: "0 16px",
+          border: "1px solid rgba(255,255,255,.06)",
+          borderRadius: 16,
+          overflow: "hidden",
+        }}
+      >
+        <TaskItem
+          onClick={() => open("tg")}
+          iconBg="#1F6FE5"
+          iconColor="#fff"
+          icon={<IconTelegram />}
+          title="Complete task"
+          reward={
+            <Badge>
+              <IconUSDT /> 0.002
+            </Badge>
+          }
+        />
+        <TaskItem
+          onClick={() => open("x")}
+          iconBg="#111111"
+          iconColor="#fff"
+          icon={<IconXAlt />}
+          title="Complete task"
+          reward={
+            <Badge>
+              <IconUSDT /> 0.002
+            </Badge>
+          }
+        />
+        <TaskItem
+          onClick={() => open("tg")}
+          iconBg="#2D7D46"
+          iconColor="#fff"
+          icon={<IconTicket />}
+          title="Complete task"
+          reward={
+            <Badge>
+              <IconUSDT /> 0.002
+            </Badge>
+          }
+        />
+        <TaskItem
+          onClick={() => open("x")}
+          iconBg="#8E44AD"
+          iconColor="#fff"
+          icon={<IconTicket />}
+          title="Complete task"
+          reward={
+            <Badge>
+              <IconUSDT /> 0.002
+            </Badge>
+          }
+        />
       </div>
 
       {/* Bottom Sheet */}
       {sheet.open && (
-        <div onClick={close} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", display: "flex", alignItems: "flex-end", zIndex: 50 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", background: BG, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, borderTop: `1px solid ${BORDER}` }}>
+        <div
+          onClick={close}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,.55)",
+            display: "flex",
+            alignItems: "flex-end",
+            zIndex: 50,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              background: BG,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 16,
+              borderTop: `1px solid ${BORDER}`,
+            }}
+          >
             <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
-              <div style={{ width: 64, height: 64, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: iconCircleBg, color: "#fff" }}>{iconEl}</div>
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 999,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: iconCircleBg,
+                  color: "#fff",
+                }}
+              >
+                {iconEl}
+              </div>
             </div>
-            <div style={{ textAlign: "center", color: "#fff", fontSize: 22, fontWeight: 800, marginTop: 12 }}>{title}</div>
-            <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 8, color: "#fff" }}>
-              <span style={{ width: 16, height: 16, borderRadius: 999, border: "2px solid #C7CCDA", display: "inline-block" }} />
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}><IconUSDT /> 0.002</span>
+            <div
+              style={{
+                textAlign: "center",
+                color: "#fff",
+                fontSize: 22,
+                fontWeight: 800,
+                marginTop: 12,
+              }}
+            >
+              {title}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: 8,
+                marginTop: 8,
+                color: "#fff",
+              }}
+            >
+              <span
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: 999,
+                  border: "2px solid #C7CCDA",
+                  display: "inline-block",
+                }}
+              />
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}>
+                <IconUSDT /> 0.002
+              </span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
-              <button onClick={close} style={{ padding: "12px 14px", borderRadius: 12, border: `1px solid ${BORDER}`, background: "#2A2E3E", color: "#E6EAF6", fontWeight: 800 }}>Cancel</button>
-              <button onClick={onPrimary} style={{ padding: "12px 14px", borderRadius: 12, border: 0, background: ACCENT, color: "#0C0F14", fontWeight: 800 }}>{primary}</button>
+              <button
+                onClick={close}
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  border: `1px solid ${BORDER}`,
+                  background: "#2A2E3E",
+                  color: "#E6EAF6",
+                  fontWeight: 800,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onPrimary}
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  border: 0,
+                  background: ACCENT,
+                  color: "#0C0F14",
+                  fontWeight: 800,
+                }}
+              >
+                {primary}
+              </button>
             </div>
           </div>
         </div>
@@ -266,35 +508,123 @@ function WalletScreen() {
   const [showPicker, setShowPicker] = useState(false);
 
   const canContinue = Number(amount) > 0 && address.trim().length > 0;
-  const pasteTo = async (setter) => { try { const t = await navigator.clipboard.readText(); setter(t); } catch { } };
-  const setMax = () => setAmount(String(0));
+  const pasteTo = async (setter) => {
+    try {
+      const t = await navigator.clipboard.readText();
+      setter(t);
+    } catch {}
+  };
+  const setMax = () => setAmount(String(0)); // ganti sesuai balance kamu
 
-  const fieldWrap = { background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 12 };
+  const fieldWrap = {
+    background: CARD,
+    border: `1px solid ${BORDER}`,
+    borderRadius: 16,
+    padding: 12,
+  };
 
   return (
     <div style={{ minHeight: "100dvh", background: BG }}>
       <TopBar title="Withdraw" />
       <div style={{ padding: 16 }}>
         {/* Amount */}
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", color: "#C7CCDA", fontWeight: 700, marginBottom: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            color: "#C7CCDA",
+            fontWeight: 700,
+            marginBottom: 8,
+          }}
+        >
           <div>Amount</div>
           <div style={{ fontWeight: 600, color: "#9FB0CE" }}>Available: 0 USDT</div>
         </div>
         <div style={{ ...fieldWrap, position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "#0E1726" }}><IconUSDT /></div>
-            <input type="number" inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ flex: 1, outline: "none", border: 0, background: "transparent", color: "#fff", fontSize: 18, fontWeight: 800, paddingRight: 64 }} />
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 12,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#0E1726",
+              }}
+            >
+              <IconUSDT />
+            </div>
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              style={{
+                flex: 1,
+                outline: "none",
+                border: 0,
+                background: "transparent",
+                color: "#fff",
+                fontSize: 18,
+                fontWeight: 800,
+                paddingRight: 64,
+              }}
+            />
           </div>
-          <button onClick={setMax} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", padding: "8px 12px", borderRadius: 10, border: `1px solid ${BORDER}`, background: "#2A2E3E", color: "#E6EAF6", fontWeight: 800 }}>Max</button>
+          <button
+            onClick={setMax}
+            style={{
+              position: "absolute",
+              right: 12,
+              top: "50%",
+              transform: "translateY(-50%)",
+              padding: "8px 12px",
+              borderRadius: 10,
+              border: `1px solid ${BORDER}`,
+              background: "#2A2E3E",
+              color: "#E6EAF6",
+              fontWeight: 800,
+            }}
+          >
+            Max
+          </button>
         </div>
 
         {/* Network */}
         <div style={{ marginTop: 16 }}>
           <div style={{ color: "#C7CCDA", fontWeight: 700, marginBottom: 8 }}>Network</div>
-          <button onClick={() => setShowPicker(true)} style={{ ...fieldWrap, width: "100%", textAlign: "left", padding: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <button
+            onClick={() => setShowPicker(true)}
+            style={{
+              ...fieldWrap,
+              width: "100%",
+              textAlign: "left",
+              padding: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 10, background: "#0E1726", display: "flex", alignItems: "center", justifyContent: "center" }}><IconUSDT /></div>
-              <span style={{ color: "#E6EAF6", fontWeight: 800 }}>{network || "Select network"}</span>
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 10,
+                  background: "#0E1726",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <IconUSDT />
+              </div>
+              <span style={{ color: "#E6EAF6", fontWeight: 800 }}>
+                {network || "Select network"}
+              </span>
             </div>
             <IconChevronDown color="rgba(255,255,255,.6)" />
           </button>
@@ -305,8 +635,33 @@ function WalletScreen() {
           <div style={{ color: "#C7CCDA", fontWeight: 700, marginBottom: 8 }}>Wallet</div>
           <div style={fieldWrap}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <input placeholder="Enter address" value={address} onChange={(e) => setAddress(e.target.value)} style={{ flex: 1, outline: "none", border: 0, background: "transparent", color: "#fff", fontSize: 14, fontWeight: 700 }} />
-              <button onClick={() => pasteTo(setAddress)} style={{ padding: "8px 12px", borderRadius: 10, border: `1px solid ${BORDER}`, background: "#2A2E3E", color: "#E6EAF6", fontWeight: 800 }}>Paste</button>
+              <input
+                placeholder="Enter address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                style={{
+                  flex: 1,
+                  outline: "none",
+                  border: 0,
+                  background: "transparent",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 700,
+                }}
+              />
+              <button
+                onClick={() => pasteTo(setAddress)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: `1px solid ${BORDER}`,
+                  background: "#2A2E3E",
+                  color: "#E6EAF6",
+                  fontWeight: 800,
+                }}
+              >
+                Paste
+              </button>
             </div>
           </div>
         </div>
@@ -316,27 +671,137 @@ function WalletScreen() {
           <div style={{ color: "#C7CCDA", fontWeight: 700, marginBottom: 8 }}>MEMO (optional)</div>
           <div style={fieldWrap}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <input placeholder="Enter MEMO" value={memo} onChange={(e) => setMemo(e.target.value)} style={{ flex: 1, outline: "none", border: 0, background: "transparent", color: "#fff", fontSize: 14, fontWeight: 700 }} />
-              <button onClick={() => pasteTo(setMemo)} style={{ padding: "8px 12px", borderRadius: 10, border: `1px solid ${BORDER}`, background: "#2A2E3E", color: "#E6EAF6", fontWeight: 800 }}>Paste</button>
+              <input
+                placeholder="Enter MEMO"
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                style={{
+                  flex: 1,
+                  outline: "none",
+                  border: 0,
+                  background: "transparent",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 700,
+                }}
+              />
+              <button
+                onClick={() => pasteTo(setMemo)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: `1px solid ${BORDER}`,
+                  background: "#2A2E3E",
+                  color: "#E6EAF6",
+                  fontWeight: 800,
+                }}
+              >
+                Paste
+              </button>
             </div>
           </div>
         </div>
 
         {/* Primary */}
         <div style={{ marginTop: 12 }}>
-          <NeonButton disabled={!canContinue} onClick={() => {}}>{"Request withdraw"}</NeonButton>
+          <NeonButton
+            disabled={!canContinue}
+            onClick={async () => {
+              try {
+                const payload = {
+                  userId: tgUserId,
+                  amount: Number(amount),
+                  address,
+                  memo,
+                  network,
+                };
+                const r = await api.withdraw.create(payload);
+                alert("Withdraw request submitted: " + r.id);
+              } catch (e) {
+                alert("Withdraw failed: " + (e?.data?.error || e.message));
+              }
+            }}
+          >
+            {"Request withdraw"}
+          </NeonButton>
         </div>
       </div>
 
       {/* Network picker */}
       {showPicker && (
-        <div onClick={() => setShowPicker(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", display: "flex", alignItems: "flex-end", zIndex: 60 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", background: BG, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, borderTop: `1px solid ${BORDER}` }}>
-            <div style={{ textAlign: "center", color: "#fff", fontSize: 18, fontWeight: 800, marginBottom: 8 }}>Select network</div>
+        <div
+          onClick={() => setShowPicker(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,.55)",
+            display: "flex",
+            alignItems: "flex-end",
+            zIndex: 60,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              background: BG,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 16,
+              borderTop: `1px solid ${BORDER}`,
+            }}
+          >
+            <div style={{ textAlign: "center", color: "#fff", fontSize: 18, fontWeight: 800, marginBottom: 8 }}>
+              Select network
+            </div>
             <div style={{ display: "grid", gap: 8 }}>
-              <button onClick={() => { setNetwork("Binance ID"); setShowPicker(false); }} style={{ padding: "12px 14px", borderRadius: 12, border: `1px solid ${BORDER}`, background: CARD, color: "#E6EAF6", textAlign: "left", fontWeight: 800 }}>Binance ID</button>
-              <button onClick={() => { setNetwork("EVM"); setShowPicker(false); }} style={{ padding: "12px 14px", borderRadius: 12, border: `1px solid ${BORDER}`, background: CARD, color: "#E6EAF6", textAlign: "left", fontWeight: 800 }}>EVM</button>
-              <button onClick={() => setShowPicker(false)} style={{ padding: "12px 14px", borderRadius: 12, border: `1px solid ${BORDER}`, background: "#2A2E3E", color: "#E6EAF6", fontWeight: 800 }}>Cancel</button>
+              <button
+                onClick={() => {
+                  setNetwork("Binance ID");
+                  setShowPicker(false);
+                }}
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  border: `1px solid ${BORDER}`,
+                  background: CARD,
+                  color: "#E6EAF6",
+                  textAlign: "left",
+                  fontWeight: 800,
+                }}
+              >
+                Binance ID
+              </button>
+              <button
+                onClick={() => {
+                  setNetwork("EVM");
+                  setShowPicker(false);
+                }}
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  border: `1px solid ${BORDER}`,
+                  background: CARD,
+                  color: "#E6EAF6",
+                  textAlign: "left",
+                  fontWeight: 800,
+                }}
+              >
+                EVM
+              </button>
+              <button
+                onClick={() => setShowPicker(false)}
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  border: `1px solid ${BORDER}`,
+                  background: "#2A2E3E",
+                  color: "#E6EAF6",
+                  fontWeight: 800,
+                }}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
