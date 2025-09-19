@@ -62,14 +62,52 @@ const IconBear = ({ size = 20 }) => (
 // === PRIMITIVES ===
 const IconDot = () => <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 999, background: ACCENT }} />;
 
-function TopBar({ title, onBack, extraRight }) {
+function TopBar({ title, onBack, showBack = false, showRight = false, extraRight = null }) {
   return (
-    <div style={{ position: "sticky", top: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 12px", background: BG }}>
-      <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 6, color: "#fff", opacity: 0.9 }}>
-        <IconChevronLeft /> <span style={{ fontSize: 13 }}>Back</span>
-      </button>
-      <div style={{ color: "#fff", fontSize: 18, fontWeight: 700 }}>{title}</div>
-      <div>{extraRight ?? <IconChevronDown color="rgba(255,255,255,.6)" />}</div>
+    <div
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 20,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "16px 16px 12px",
+        background: BG,
+      }}
+    >
+      {/* kiri: back icon only (tanpa teks), default hidden */}
+      <div style={{ width: 40 }}>
+        {showBack && (
+          <button
+            onClick={onBack}
+            aria-label="Back"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#fff",
+              background: "#1a2030",
+              border: `1px solid ${BORDER}`,
+            }}
+          >
+            <IconChevronLeft />
+          </button>
+        )}
+      </div>
+
+      {/* title tengah */}
+      <div style={{ color: "#fff", fontSize: 18, fontWeight: 800, textAlign: "center", flex: 1 }}>
+        {title}
+      </div>
+
+      {/* kanan: panah/extra, default hidden */}
+      <div style={{ width: 40, textAlign: "right" }}>
+        {showRight ? (extraRight || <IconChevronDown color="rgba(255,255,255,.6)" />) : null}
+      </div>
     </div>
   );
 }
