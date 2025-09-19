@@ -884,12 +884,44 @@ const tabs = [
 function BottomBar({ value, onChange }) {
   return (
     <div style={{ position: "fixed", left: 0, right: 0, zIndex: 40, bottom: "calc(env(safe-area-inset-bottom) + 16px)" }}>
-      <div style={{ margin: "0 auto", width: "92%", maxWidth: 480, border: `1px solid #202538`, backdropFilter: "blur(4px)", background: "rgba(22,25,34,0.9)", borderRadius: 16, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 12px 30px rgba(0,0,0,.35)" }}>
+      <div
+        style={{
+          margin: "0 auto",
+          width: "92%",
+          maxWidth: 480,
+          border: `1px solid #202538`,
+          background: "rgba(20,26,35,.95)", // ← gelap, ganti yg lama
+          borderRadius: 16,
+          padding: "8px 12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          boxShadow: "0 12px 30px rgba(0,0,0,.35)",
+        }}
+      >
         {tabs.map((t) => {
           const active = value === t.key;
           return (
-            <button key={t.key} onClick={() => onChange(t.key)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "4px 0", color: active ? "#fff" : "rgba(255,255,255,.6)" }}>
-              <div style={{ width: 36, height: 36, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: active ? ACCENT : "#1a1f2f", boxShadow: active ? "0 0 18px rgba(198,255,62,.35)" : "none", color: active ? "#0C0F14" : "rgba(255,255,255,.8)" }}>{t.icon}</div>
+            <button
+              key={t.key}
+              onClick={() => onChange(t.key)}
+              style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "4px 0", color: active ? "#fff" : "rgba(255,255,255,.6)" }}
+            >
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 999,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: active ? ACCENT : "#1a1f2f",
+                  boxShadow: active ? "0 0 18px rgba(198,255,62,.35)" : "none",
+                  color: active ? "#0C0F14" : "rgba(255,255,255,.8)",
+                }}
+              >
+                {t.icon}
+              </div>
               <div style={{ fontSize: 10, lineHeight: 1 }}>{t.label}</div>
             </button>
           );
