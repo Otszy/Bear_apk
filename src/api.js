@@ -1,8 +1,12 @@
 // src/api.js
-const base = ''; // same-origin
+const base = ''; // same-origin. Kalau backend beda domain, isi dengan URL backend kamu.
 
-function initData() {
-  try { return window?.Telegram?.WebApp?.initData || ''; } catch { return ''; }
+function getInitData() {
+  try {
+    return window?.Telegram?.WebApp?.initData || '';
+  } catch {
+    return '';
+  }
 }
 
 async function j(method, url, body) {
@@ -10,18 +14,26 @@ async function j(method, url, body) {
     method,
     headers: {
       'Content-Type': 'application/json',
-      'X-Telegram-Init': initData(),   // <- PENTING: kirim initData
+      'X-Telegram-Init': getInitData(), // <- penting: kirim initData ke server
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(data?.error || r.statusText), { status: r.status, data });
+
+  let data = {};
+  try { data = await r.json(); } catch {}
+
+  if (!r.ok) {
+    const err = new Error(data?.error || r.statusText || 'Request failed');
+    err.status = r.status;
+    err.data = data;
+    throw err;
+  }
   return data;
 }
 
 export const api = {
   ads: {
-    start: (userId) => j('POST', '/api/ads/start', { userId }),
+    start: () => j('POST', '/api/ads/start'), // userId TIDAK dikirim dari client
     verify: (session, sig) => j('POST', '/api/ads/verify', { session, sig }),
   },
   subscribe: {
