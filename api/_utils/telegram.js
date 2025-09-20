@@ -1,42 +1,57 @@
-// pages/api/_lib/telegram.js
+// api/_utils/telegram.js
 import crypto from 'node:crypto';
 
-export function verifyInitData(initData, botToken) {
-  if (!initData) throw new Error('missing_init_data');
+const BOT_TOKEN = process.env.TG_BOT_TOKEN; // set di Vercel
 
-  // Parse querystring dari initData
-  const sp = new URLSearchParams(initData);
-  const hash = sp.get('hash');
-  if (!hash) throw new Error('missing_hash');
-  sp.delete('hash');
+function verifyInitData(initData) {
+  if (!initData || !BOT_TOKEN) {
+    throw Object.assign(new Error('bad_init_data'), { status: 401 });
+  }
+  const urlParams = new URLSearchParams(initData);
+  const hash = urlParams.get('hash');
+  urlParams.delete('hash');
 
-  // data_check_string: key=value dipisah \n, urut alfabet
-  const dataCheckString = [...sp.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
+  const dataCheckString = Array.from(urlParams.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}=${v}`)
     .join('\n');
 
-  // secret_key = HMAC_SHA256("WebAppData", bot_token)
-  const secretKey = crypto
-    .createHmac('sha256', 'WebAppData')
-    .update(botToken)
+  const secret = crypto.createHmac('sha256', 'WebAppData')
+    .update(BOT_TOKEN)
     .digest();
 
-  const calcHash = crypto
-    .createHmac('sha256', secretKey)
+  const signature = crypto.createHmac('sha256', secret)
     .update(dataCheckString)
     .digest('hex');
 
-  if (calcHash !== hash) throw new Error('bad_init_data');
+  if (signature !== hash) {
+    throw Object.assign(new Error('bad_init_data'), { status: 401 });
+  }
 
-  const userJson = sp.get('user');
-  const user = userJson ? JSON.parse(userJson) : null;
-  if (!user?.id) throw new Error('user_missing');
+  const authDate = parseInt(urlParams.get('auth_date') || '0', 10) * 1000;
+  if (!authDate || Date.now() - authDate > 24 * 60 * 60 * 1000) {
+    throw Object.assign(new Error('bad_init_data'), { status: 401 });
+  }
 
-  return { user, authDate: Number(sp.get('auth_date')) || 0 };
+  const userRaw = urlParams.get('user');
+  const user = userRaw ? JSON.parse(userRaw) : null;
+  if (!user?.id) throw Object.assign(new Error('bad_init_data'), { status: 401 });
+  return { user };
 }
 
-export function getUserFromReq(req) {
-  const init = req.headers['x-telegram-init'] || req.body?.init || '';
-  return verifyInitData(init, process.env.TG_BOT_TOKEN);
+export function ensureTgUser(req) {
+  const initData = req.headers?.get
+    ? req.headers.get('x-telegram-init')
+    : req.headers['x-telegram-init'];
+  return verifyInitData(initData);
+}
+
+export async function isMemberOfChannel(userId) {
+  const username = process.env.TG_CHANNEL_USERNAME || 'bearappofficial'; // tanpa @
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=@${username}&user_id=${userId}`;
+  const r = await fetch(url);
+  const data = await r.json().catch(() => ({}));
+  if (!data.ok) return false;
+  const s = data.result?.status;
+  return s && s !== 'left' && s !== 'kicked';
 }
