@@ -1,27 +1,28 @@
-import crypto from 'crypto'
+// api/ads/start.js
+const cors = require('../_utils/cors');
+const { verifyInitData, getInitDataFromHeader } = require('../_utils/telegram');
+const crypto = require('crypto');
 
-
-const MIN_WATCH_MS = 5000 // contoh 5 detik buat demo
-
-
-export default async function handler(req, res) {
-res.setHeader('Access-Control-Allow-Origin', '*')
-if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-
-
-const { userId = 'demo-user' } = req.body || {}
-const secret = process.env.SERVER_SECRET
-if (!secret) return res.status(500).json({ error: 'SERVER_SECRET not set' })
-
-
-const payload = { u: String(userId), t: Date.now(), k: 'ads' }
-const session = Buffer.from(JSON.stringify(payload)).toString('base64url')
-const sig = crypto.createHmac('sha256', secret).update(session).digest('base64url')
-
-
-// URL iklan dummy (kamu bisa ganti ke network ads kamu)
-const adUrl = 'https://example.com/ad'
-
-
-res.status(200).json({ session, sig, minWatchMs: MIN_WATCH_MS, adUrl })
+function sign(obj, secret) {
+  const payload = Buffer.from(JSON.stringify(obj)).toString('base64url');
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  return { session: payload, sig };
 }
+
+module.exports = async (req, res) => {
+  if (cors(req, res)) return;
+  if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });
+
+  const botToken = process.env.TG_BOT_TOKEN;
+  const secret = process.env.APP_SECRET || botToken;
+  const initData = getInitDataFromHeader(req);
+  const v = verifyInitData(botToken, initData);
+  if (!v.ok || !v.user?.id) return res.status(401).json({ error: 'invalid_init_data' });
+
+  const minWatchMs = Number(process.env.AD_MIN_MS || 5000);
+  const payload = { uid: v.user.id, t: Date.now() };
+  const { session, sig } = sign(payload, secret);
+  const adUrl = process.env.AD_URL || 'https://example.com/';
+
+  return res.status(200).json({ session, sig, minWatchMs, adUrl });
+};
