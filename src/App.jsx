@@ -487,7 +487,7 @@ function WalletScreen() {
             disabled={!canContinue}
             onClick={async () => {
               try {
-                const payload = { userId: tgUserId, amount: Number(amount), address, memo, network };
+                const payload = { amount: Number(amount), address, memo, network };
                 const r = await api.withdraw.create(payload);
                 alert("Withdraw request submitted: " + r.id);
               } catch (e) {
