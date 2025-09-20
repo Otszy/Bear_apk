@@ -261,17 +261,17 @@ function EarnScreen() {
         }
       } else {
         if (sheet.kind === "tg") {
-          const r = await api.subscribe.verify("tg", tgUserId);
+          const r = await api.subscribe.verify("tg");
           alert(r.valid ? `Reward granted: ${r.amount} USDT` : "Belum join channel");
           if (r.valid) close();
         } else if (sheet.kind === "x") {
-          const r = await api.subscribe.verify("x", tgUserId);
+          const r = await api.subscribe.verify("x");
           alert(`Reward granted: ${r.amount} USDT`);
           close();
         } else if (sheet.kind === "ads") {
           const s = window.__adSession;
           if (!s) return alert("Session not found");
-          const r = await api.ads.verify(s.session, s.sig);
+          const { session, sig, minWatchMs, adUrl } = await api.ads.start();
           alert(`Reward granted: ${r.amount} USDT`);
           close();
         }
