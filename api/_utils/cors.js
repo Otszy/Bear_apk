@@ -1,13 +1,14 @@
-// api/_utils/cors.js
-function cors(req, res) {
+// ESM
+export default function cors(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-TG-InitData');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'content-type, x-tg-init-data, x-tg-initdata, x-telegram-init-data, authorization'
+  );
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
-    return true;
+    res.status(204).end();
+    return true; // sudah ditangani
   }
   return false;
 }
-module.exports = cors;
