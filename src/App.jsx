@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+const tg = (typeof window !== 'undefined') ? window.Telegram?.WebApp : undefined;
 // ---- API client (dipakai di komponen) ----
 const base = ''; // same-origin
 
