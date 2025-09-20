@@ -11,19 +11,36 @@ function pickHeader(req, key) {
   return get ? get(key) : req.headers[key];
 }
 
+function pickQuery(req) {
+  try {
+    const url = new URL(req.url, 'http://localhost'); // base dummy
+    return (
+      url.searchParams.get('init') ||
+      url.searchParams.get('initData') ||
+      url.searchParams.get('tgWebAppData') ||
+      ''
+    );
+  } catch { return ''; }
+}
+
 export function ensureTgUser(req) {
-  // 1) ambil initData dari beberapa header umum
+  // 1) header
   let initData =
     pickHeader(req, 'x-telegram-init') ||
     pickHeader(req, 'x-telegram-init-data') ||
     pickHeader(req, 'x-tg-init-data');
 
-  // 2) fallback dari BODY (penting kalau header custom “hilang”)
+  // 2) body (kalau header ilang)
   if (!initData && req.body && typeof req.body.initData === 'string') {
     initData = req.body.initData;
   }
 
-  // 3) (opsional) bypass sementara untuk tes cepat
+  // 3) querystring (backup terakhir, anti-bandel)
+  if (!initData) {
+    initData = pickQuery(req);
+  }
+
+  // (opsional) bypass signature buat tes cepat
   if (process.env.TG_DISABLE_SIGNATURE === 'true') {
     const url = new URLSearchParams(initData || '');
     const userRaw = url.get('user');
@@ -65,12 +82,13 @@ function verifyInitData(initData) {
 export async function isMemberOfChannel(userId) {
   const id = process.env.TG_CHANNEL_ID;
   const username = process.env.TG_CHANNEL_USERNAME;  // tanpa @
-  const url = process.env.TG_CHANNEL_URL;            // fallback kalo keburu set URL
+  const url = process.env.TG_CHANNEL_URL;            // fallback kalau env kamu URL
+
   let chat = null;
-  if (id) chat = id;
+  if (id) chat = id;                      // -100xxxxxxxxxx
   else if (username) chat = '@' + username;
   else if (url) {
-    const m = url.match(/t\.me\/(?:c\/)?([^/?#]+)/i);
+    const m = url.match(/t\.me\/(?:c\/)?([^\/?#]+)/i);
     if (m) chat = '@' + m[1];
   }
   if (!chat) return false;
