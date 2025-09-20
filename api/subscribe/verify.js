@@ -1,44 +1,43 @@
-import cors from '../_utils/cors.js';
-import { verifyInitData, getInitDataFromHeader } from '../_utils/telegram.js';
+// pages/api/subscribe/verify.js
+import { getUserFromReq } from '../_lib/telegram.js';
 
-const BOT = process.env.TG_BOT_TOKEN || '';
-const CH  = (process.env.TG_CHANNEL_USERNAME || 'bearappofficial').replace(/^@/, '');
-
-async function isTelegramMember(userId) {
-  const url = `https://api.telegram.org/bot${BOT}/getChatMember?chat_id=@${CH}&user_id=${userId}`;
-  const r = await fetch(url);
-  const j = await r.json().catch(() => ({}));
-  if (!j.ok) return { ok: false, reason: j.description || 'tg_api_error' };
-  const st = j.result?.status;
-  const member = ['member', 'administrator', 'creator'].includes(st);
-  return { ok: member, status: st };
-}
+const TG_CHANNEL = process.env.TG_CHANNEL_URL || 'https://t.me/bearappofficial'; // untuk start()
+const TG_CHAT_ID = '@bearappofficial'; // ganti bila pakai ID numerik
+const BOT_TOKEN = process.env.TG_BOT_TOKEN;
 
 export default async function handler(req, res) {
-  if (cors(req, res)) return;
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });
 
-  const { provider } = req.body || {};
-  if (!provider) return res.status(400).json({ error: 'provider_required' });
+  try {
+    const { provider } = req.body || {};
+    if (!provider) return res.status(400).json({ error: 'provider_required' });
 
-  // Verifikasi initData dari header (bukan percaya data client)
-  const initData = getInitDataFromHeader(req);
-  const v = verifyInitData(BOT, initData);
-  if (!v.ok) return res.status(401).json({ error: 'bad_init_data', reason: v.reason });
+    // Verifikasi initData → dapat user.id yang valid
+    const { user } = getUserFromReq(req);
+    const userId = user.id;
 
-  const userId = v.user?.id;
-  if (!userId) return res.status(400).json({ error: 'no_user' });
+    if (provider === 'tg') {
+      // cek ke Telegram apakah user member channel
+      const url = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${encodeURIComponent(TG_CHAT_ID)}&user_id=${userId}`;
+      const r = await fetch(url);
+      const data = await r.json();
+      const status = data?.result?.status;
+      const valid = ['member', 'administrator', 'creator'].includes(status);
+      if (!valid) return res.status(200).json({ valid: false });
 
-  if (provider === 'tg') {
-    const m = await isTelegramMember(userId);
-    if (!m.ok) return res.status(200).json({ valid: false, reason: m.reason || 'not_member' });
-    return res.status(200).json({ valid: true, amount: 0.002 });
+      // TODO: tulis ke DB reward, cegah double claim
+      return res.status(200).json({ valid: true, amount: 0.002 });
+    }
+
+    if (provider === 'x') {
+      // sementara anggap valid selalu (belum ada API cek follow)
+      return res.status(200).json({ valid: true, amount: 0.002 });
+    }
+
+    return res.status(400).json({ error: 'unknown_provider' });
+  } catch (e) {
+    console.error('verify error:', e);
+    return res.status(401).json({ error: e.message || 'bad_init_data' });
   }
-
-  // Placeholder untuk X (blm ada verifikasi real)
-  if (provider === 'x') {
-    return res.status(200).json({ valid: true, amount: 0.002 });
-  }
-
-  return res.status(400).json({ error: 'unknown_provider' });
 }
