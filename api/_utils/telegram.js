@@ -1,37 +1,42 @@
-// ESM
-import crypto from 'crypto';
+// pages/api/_lib/telegram.js
+import crypto from 'node:crypto';
 
-export function verifyInitData(botToken, initDataRaw) {
-  if (!initDataRaw) return { ok: false, reason: 'missing_init_data' };
+export function verifyInitData(initData, botToken) {
+  if (!initData) throw new Error('missing_init_data');
 
-  const p = new URLSearchParams(initDataRaw);
-  const hash = p.get('hash');
-  if (!hash) return { ok: false, reason: 'missing_hash' };
-  p.delete('hash');
+  // Parse querystring dari initData
+  const sp = new URLSearchParams(initData);
+  const hash = sp.get('hash');
+  if (!hash) throw new Error('missing_hash');
+  sp.delete('hash');
 
-  const dataCheckString = [...p]
+  // data_check_string: key=value dipisah \n, urut alfabet
+  const dataCheckString = [...sp.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([k, v]) => `${k}=${v}`)
-    .sort()
     .join('\n');
 
-  const secret = crypto
-    .createHash('sha256')
-    .update('WebAppData' + botToken)
+  // secret_key = HMAC_SHA256("WebAppData", bot_token)
+  const secretKey = crypto
+    .createHmac('sha256', 'WebAppData')
+    .update(botToken)
     .digest();
-  const hmac = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
-  if (hmac !== hash) return { ok: false, reason: 'bad_hash' };
 
-  let user = null;
-  const u = p.get('user');
-  if (u) try { user = JSON.parse(u); } catch {}
-  return { ok: true, user };
+  const calcHash = crypto
+    .createHmac('sha256', secretKey)
+    .update(dataCheckString)
+    .digest('hex');
+
+  if (calcHash !== hash) throw new Error('bad_init_data');
+
+  const userJson = sp.get('user');
+  const user = userJson ? JSON.parse(userJson) : null;
+  if (!user?.id) throw new Error('user_missing');
+
+  return { user, authDate: Number(sp.get('auth_date')) || 0 };
 }
 
-export function getInitDataFromHeader(req) {
-  return (
-    req.headers['x-tg-init-data'] ||
-    req.headers['x-tg-initdata'] ||
-    req.headers['x-telegram-init-data'] ||
-    ''
-  );
+export function getUserFromReq(req) {
+  const init = req.headers['x-telegram-init'] || req.body?.init || '';
+  return verifyInitData(init, process.env.TG_BOT_TOKEN);
 }
