@@ -1,5 +1,5 @@
 // api/subscribe/verify.js
-import { ensureTgUser } from '../_utils/telegram.js';
+import { ensureTgUser, isMemberOfChannel } from '../_utils/telegram.js';
 
 const BOT_TOKEN =
   process.env.TG_BOT_TOKEN ||
