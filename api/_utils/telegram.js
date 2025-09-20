@@ -1,12 +1,34 @@
 // api/_utils/telegram.js
 import crypto from 'node:crypto';
 
-const BOT_TOKEN = process.env.TG_BOT_TOKEN; // set di Vercel
+const BOT_TOKEN =
+  process.env.TG_BOT_TOKEN ||
+  process.env.TELEGRAM_BOT_TOKEN ||
+  process.env.BOT_TOKEN;
+
+function pickHeader(req, key) {
+  const get = req.headers?.get?.bind(req.headers);
+  return get ? get(key) : req.headers[key];
+}
+
+export function ensureTgUser(req) {
+  // 1) dari beberapa variasi header
+  let initData =
+    pickHeader(req, 'x-telegram-init') ||
+    pickHeader(req, 'x-telegram-init-data') ||
+    pickHeader(req, 'x-tg-init-data');
+
+  // 2) fallback body (kalau header hilang karena redirect/CORS)
+  if (!initData && req.body && typeof req.body.initData === 'string') {
+    initData = req.body.initData;
+  }
+  return verifyInitData(initData);
+}
 
 function verifyInitData(initData) {
-  if (!initData || !BOT_TOKEN) {
-    throw Object.assign(new Error('bad_init_data'), { status: 401 });
-  }
+  if (!BOT_TOKEN) throw Object.assign(new Error('missing_bot_token'), { status: 401 });
+  if (!initData)  throw Object.assign(new Error('missing_initdata'), { status: 401 });
+
   const urlParams = new URLSearchParams(initData);
   const hash = urlParams.get('hash');
   urlParams.delete('hash');
@@ -24,32 +46,37 @@ function verifyInitData(initData) {
     .update(dataCheckString)
     .digest('hex');
 
-  if (signature !== hash) {
-    throw Object.assign(new Error('bad_init_data'), { status: 401 });
-  }
+  if (signature !== hash) throw Object.assign(new Error('signature_mismatch'), { status: 401 });
 
   const authDate = parseInt(urlParams.get('auth_date') || '0', 10) * 1000;
-  if (!authDate || Date.now() - authDate > 24 * 60 * 60 * 1000) {
-    throw Object.assign(new Error('bad_init_data'), { status: 401 });
+  const MAX_AGE_MS = 24 * 60 * 60 * 1000;
+  if (!authDate || Date.now() - authDate > MAX_AGE_MS) {
+    throw Object.assign(new Error('initdata_expired'), { status: 401 });
   }
 
   const userRaw = urlParams.get('user');
   const user = userRaw ? JSON.parse(userRaw) : null;
-  if (!user?.id) throw Object.assign(new Error('bad_init_data'), { status: 401 });
+  if (!user?.id) throw Object.assign(new Error('no_user_in_initdata'), { status: 401 });
+
   return { user };
 }
 
-export function ensureTgUser(req) {
-  const initData = req.headers?.get
-    ? req.headers.get('x-telegram-init')
-    : req.headers['x-telegram-init'];
-  return verifyInitData(initData);
-}
-
 export async function isMemberOfChannel(userId) {
-  const username = process.env.TG_CHANNEL_USERNAME || 'bearappofficial'; // tanpa @
-  const url = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=@${username}&user_id=${userId}`;
-  const r = await fetch(url);
+  const id = process.env.TG_CHANNEL_ID;
+  const username = process.env.TG_CHANNEL_USERNAME;
+  const url = process.env.TG_CHANNEL_URL; // fallback kalau sudah telanjur pakai ini
+
+  let chat = null;
+  if (id) chat = id;                                  // -100xxxxxxxxxx (private)
+  else if (username) chat = '@' + username;           // tanpa @ di env
+  else if (url) {                                     // t.me/xxx → ambil username-nya
+    const m = url.match(/t\.me\/(?:c\/)?([^/?#]+)/i);
+    if (m) chat = '@' + m[1];
+  }
+  if (!chat) return false;
+
+  const API = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${encodeURIComponent(chat)}&user_id=${userId}`;
+  const r = await fetch(API);
   const data = await r.json().catch(() => ({}));
   if (!data.ok) return false;
   const s = data.result?.status;
