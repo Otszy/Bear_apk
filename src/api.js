@@ -1,6 +1,7 @@
+// src/api.js
 const base = ''; // same-origin
 
-function tgInitData() {
+function initData() {
   try { return window?.Telegram?.WebApp?.initData || ''; } catch { return ''; }
 }
 
@@ -9,7 +10,7 @@ async function j(method, url, body) {
     method,
     headers: {
       'Content-Type': 'application/json',
-      'x-tg-init-data': tgInitData(), // <-- penting untuk verifikasi server
+      'X-Telegram-Init': initData(),   // <- PENTING: kirim initData
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -20,12 +21,12 @@ async function j(method, url, body) {
 
 export const api = {
   ads: {
-    start: () => j('POST', '/api/ads/start'),
+    start: (userId) => j('POST', '/api/ads/start', { userId }),
     verify: (session, sig) => j('POST', '/api/ads/verify', { session, sig }),
   },
   subscribe: {
     start: (provider) => j('POST', '/api/subscribe/start', { provider }),
-    verify: (provider) => j('POST', '/api/subscribe/verify', { provider }), // userId tidak perlu (server ambil dari header)
+    verify: (provider) => j('POST', '/api/subscribe/verify', { provider }),
   },
   withdraw: {
     create: (payload) => j('POST', '/api/withdraw/create', payload),
