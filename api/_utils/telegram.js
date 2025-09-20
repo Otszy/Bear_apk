@@ -12,16 +12,25 @@ function pickHeader(req, key) {
 }
 
 export function ensureTgUser(req) {
-  // 1) dari beberapa variasi header
+  // 1) ambil initData dari beberapa header umum
   let initData =
     pickHeader(req, 'x-telegram-init') ||
     pickHeader(req, 'x-telegram-init-data') ||
     pickHeader(req, 'x-tg-init-data');
 
-  // 2) fallback body (kalau header hilang karena redirect/CORS)
+  // 2) fallback dari BODY (penting kalau header custom “hilang”)
   if (!initData && req.body && typeof req.body.initData === 'string') {
     initData = req.body.initData;
   }
+
+  // 3) (opsional) bypass sementara untuk tes cepat
+  if (process.env.TG_DISABLE_SIGNATURE === 'true') {
+    const url = new URLSearchParams(initData || '');
+    const userRaw = url.get('user');
+    const user = userRaw ? JSON.parse(userRaw) : { id: 0 };
+    return { user };
+  }
+
   return verifyInitData(initData);
 }
 
@@ -38,45 +47,36 @@ function verifyInitData(initData) {
     .map(([k, v]) => `${k}=${v}`)
     .join('\n');
 
-  const secret = crypto.createHmac('sha256', 'WebAppData')
-    .update(BOT_TOKEN)
-    .digest();
-
-  const signature = crypto.createHmac('sha256', secret)
-    .update(dataCheckString)
-    .digest('hex');
-
+  const secret = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
+  const signature = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
   if (signature !== hash) throw Object.assign(new Error('signature_mismatch'), { status: 401 });
 
   const authDate = parseInt(urlParams.get('auth_date') || '0', 10) * 1000;
-  const MAX_AGE_MS = 24 * 60 * 60 * 1000;
-  if (!authDate || Date.now() - authDate > MAX_AGE_MS) {
+  if (!authDate || Date.now() - authDate > 24 * 60 * 60 * 1000) {
     throw Object.assign(new Error('initdata_expired'), { status: 401 });
   }
 
   const userRaw = urlParams.get('user');
   const user = userRaw ? JSON.parse(userRaw) : null;
   if (!user?.id) throw Object.assign(new Error('no_user_in_initdata'), { status: 401 });
-
   return { user };
 }
 
 export async function isMemberOfChannel(userId) {
   const id = process.env.TG_CHANNEL_ID;
-  const username = process.env.TG_CHANNEL_USERNAME;
-  const url = process.env.TG_CHANNEL_URL; // fallback kalau sudah telanjur pakai ini
-
+  const username = process.env.TG_CHANNEL_USERNAME;  // tanpa @
+  const url = process.env.TG_CHANNEL_URL;            // fallback kalo keburu set URL
   let chat = null;
-  if (id) chat = id;                                  // -100xxxxxxxxxx (private)
-  else if (username) chat = '@' + username;           // tanpa @ di env
-  else if (url) {                                     // t.me/xxx → ambil username-nya
+  if (id) chat = id;
+  else if (username) chat = '@' + username;
+  else if (url) {
     const m = url.match(/t\.me\/(?:c\/)?([^/?#]+)/i);
     if (m) chat = '@' + m[1];
   }
   if (!chat) return false;
 
-  const API = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${encodeURIComponent(chat)}&user_id=${userId}`;
-  const r = await fetch(API);
+  const api = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${encodeURIComponent(chat)}&user_id=${userId}`;
+  const r = await fetch(api);
   const data = await r.json().catch(() => ({}));
   if (!data.ok) return false;
   const s = data.result?.status;
