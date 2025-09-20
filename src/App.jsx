@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+const tg = (typeof window !== 'undefined') ? window.Telegram?.WebApp : undefined;
+const tgUserId = tg?.initDataUnsafe?.user?.id || 'demo-user';
 // ---- API client (dipakai di komponen) ----
 const base = ''; // same-origin
 
