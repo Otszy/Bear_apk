@@ -1,39 +1,8 @@
 import React, { useState, useEffect } from "react";
+import { db } from './lib/supabase';
+
 const tg = (typeof window !== 'undefined') ? window.Telegram?.WebApp : undefined;
-// ---- API client (dipakai di komponen) ----
-const base = ''; // same-origin
 
-function tgInitData() {
-  return (typeof window !== 'undefined' && window.Telegram?.WebApp?.initData) || '';
-}
-
-async function j(method, url, body) {
-  const r = await fetch(base + url, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-TG-InitData': tgInitData(), // kirim initData ke server
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(data?.error || r.statusText), { status: r.status, data });
-  return data;
-}
-
-const api = {
-  ads: {
-    start: () => j('POST', '/api/ads/start'),
-    verify: (session, sig) => j('POST', '/api/ads/verify', { session, sig }),
-  },
-  subscribe: {
-    start: (provider) => j('POST', '/api/subscribe/start', { provider }),
-    verify: (provider, session, sig) => j('POST', '/api/subscribe/verify', { provider, session, sig }),
-  },
-  withdraw: {
-    create: (payload) => j('POST', '/api/withdraw/create', payload),
-  },
-};
 // === THEME ===
 const ACCENT = "#C6FF3E";
 const BG = "#0F1115";
@@ -185,35 +154,82 @@ function TaskItem({ icon, title, reward, onClick, iconBg = ACCENT, iconColor = "
 // === HOME (3x3 DAILY CHECK-IN) ===
 function HomeScreen() {
   const rewards = [0.002, 0.004, 0.006, 0.008, 0.01, 0.012, 0.014, 0.016, 0.018];
-  const [day, setDay] = useState(1);
+  const [claimStatus, setClaimStatus] = useState({ canClaim: false, nextDay: 1, alreadyClaimed: false });
+  const [userStats, setUserStats] = useState({ balance: 0, total_earned: 0 });
   const [busy, setBusy] = useState(false);
-  const claim = () => {
-    if (busy || day > 9) return;
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const userId = tg?.initDataUnsafe?.user?.id;
+      if (!userId) return;
+
+      const [status, stats] = await Promise.all([
+        db.getDailyClaimStatus(userId),
+        db.getUserStats(userId)
+      ]);
+
+      setClaimStatus(status);
+      setUserStats(stats);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    }
+  };
+
+  const claim = async () => {
+    if (busy || !claimStatus.canClaim) return;
     setBusy(true);
-    setTimeout(() => {
+    
+    try {
+      const userId = tg?.initDataUnsafe?.user?.id;
+      if (!userId) throw new Error('No user ID');
+
+      const result = await db.claimDailyReward(userId);
+      await loadData(); // Refresh data
+      
+      // Show success message
+      if (tg?.showAlert) {
+        tg.showAlert(`Claimed ${result.amount} USDT for day ${result.day}!`);
+      }
+    } catch (error) {
+      console.error('Claim failed:', error);
+      if (tg?.showAlert) {
+        tg.showAlert('Claim failed: ' + error.message);
+      }
+    } finally {
       setBusy(false);
-      setDay((d) => Math.min(9, d + 1));
-    }, 250);
+    }
   };
 
   return (
     <div style={{ minHeight: "100dvh", background: BG }}>
       <TopBar title="Daily reward" />
       <div style={{ maxWidth: 480, margin: "0 auto", padding: 16 }}>
+        {/* Balance Display */}
+        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 16, marginBottom: 16, textAlign: 'center', color: '#fff' }}>
+          <div style={{ fontSize: 14, color: '#C7CCDA', marginBottom: 4 }}>Your Balance</div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: ACCENT }}>{userStats.balance?.toFixed(6) || '0.000000'} USDT</div>
+          <div style={{ fontSize: 12, color: '#95A0B5', marginTop: 4 }}>Total Earned: {userStats.total_earned?.toFixed(6) || '0.000000'} USDT</div>
+        </div>
+
         <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 10, color: "#fff" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 8 }}>
             {rewards.map((amt, i) => {
               const d = i + 1;
-              const isPast = d < day;
-              const isToday = d === day;
+              const isPast = d < claimStatus.nextDay;
+              const isToday = d === claimStatus.nextDay && claimStatus.canClaim;
+              const isClaimed = d === claimStatus.nextDay && claimStatus.alreadyClaimed;
               return (
                 <div key={d} style={{ position: "relative", width: "100%", paddingTop: "78%" }}>
                   <div style={{ position: "absolute", inset: 0, padding: 6 }}>
-                    <div style={{ border: `1px solid ${isToday ? ACCENT : "#202538"}`, background: isToday ? "linear-gradient(135deg, rgba(198,255,62,.12), rgba(198,255,62,.04))" : "#11141C", borderRadius: 12, width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxShadow: isToday ? `inset 0 0 0 1px ${ACCENT}55, 0 0 16px ${ACCENT}22` : "none" }}>
+                    <div style={{ border: `1px solid ${(isToday || isClaimed) ? ACCENT : "#202538"}`, background: (isToday || isClaimed) ? "linear-gradient(135deg, rgba(198,255,62,.12), rgba(198,255,62,.04))" : "#11141C", borderRadius: 12, width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxShadow: (isToday || isClaimed) ? `inset 0 0 0 1px ${ACCENT}55, 0 0 16px ${ACCENT}22` : "none" }}>
                       <div style={{ fontSize: 11, color: "#C7CCDA", marginBottom: 2 }}>Day {d}</div>
                       <div style={{ marginBottom: 4 }}>
                         <div style={{ width: 18, height: 18, borderRadius: 999, background: ACCENT, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          {isPast ? <IconCheck size={11} color="#0C0F14" /> : <span style={{ color: "#0C0F14", fontSize: 11, lineHeight: "18px", fontWeight: 800 }}>♠</span>}
+                          {(isPast || isClaimed) ? <IconCheck size={11} color="#0C0F14" /> : <span style={{ color: "#0C0F14", fontSize: 11, lineHeight: "18px", fontWeight: 800 }}>♠</span>}
                         </div>
                       </div>
                       <div style={{ fontSize: 12, fontWeight: 800 }}>{amt.toFixed(3)}</div>
@@ -224,8 +240,8 @@ function HomeScreen() {
             })}
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-            <button onClick={claim} disabled={busy || day > 9} style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: 0, background: (busy || day > 9) ? "#2A2E3E" : ACCENT, color: (busy || day > 9) ? "#95A0B5" : "#0C0F14", fontWeight: 800 }}>
-              {day <= 9 ? (busy ? "Processing…" : "Claim Day " + day) : "Completed"}
+            <button onClick={claim} disabled={busy || !claimStatus.canClaim} style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: 0, background: (busy || !claimStatus.canClaim) ? "#2A2E3E" : ACCENT, color: (busy || !claimStatus.canClaim) ? "#95A0B5" : "#0C0F14", fontWeight: 800 }}>
+              {claimStatus.alreadyClaimed ? "Claimed Today" : claimStatus.nextDay <= 9 ? (busy ? "Processing…" : "Claim Day " + claimStatus.nextDay) : "Completed"}
             </button>
           </div>
         </div>
@@ -237,98 +253,165 @@ function HomeScreen() {
 
 // === EARN ===
 function EarnScreen() {
+  const [tasks, setTasks] = useState([]);
+  const [completedTasks, setCompletedTasks] = useState([]);
   const [sheet, setSheet] = useState({ open: false, kind: null, step: "join" });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadTasks();
+  }, []);
+
+  const loadTasks = async () => {
+    try {
+      const userId = tg?.initDataUnsafe?.user?.id;
+      if (!userId) return;
+
+      const [allTasks, userCompletions] = await Promise.all([
+        db.getTasks(),
+        db.getUserTaskCompletions(userId)
+      ]);
+
+      setTasks(allTasks);
+      setCompletedTasks(userCompletions);
+    } catch (error) {
+      console.error('Failed to load tasks:', error);
+    }
+  };
 
   const open = (kind) => setSheet({ open: true, kind, step: "join" });
   const close = () => setSheet({ open: false, kind: null, step: "join" });
 
   const onPrimary = async () => {
+    if (loading) return;
+    setLoading(true);
+    
     try {
+      const userId = tg?.initDataUnsafe?.user?.id;
+      if (!userId) throw new Error('No user ID');
+
       if (sheet.step === "join") {
-        if (sheet.kind === "tg") {
-          const { joinUrl } = await api.subscribe.start("tg");
-          window.open(joinUrl, "_blank");
-          setSheet((s) => ({ ...s, step: "check" }));
-        } else if (sheet.kind === "x") {
-          const { joinUrl } = await api.subscribe.start("x");
-          window.open(joinUrl, "_blank");
-          setSheet((s) => ({ ...s, step: "check" }));
-        } else if (sheet.kind === "ads") {
-          const { session, sig, minWatchMs, adUrl } = await api.ads.start(tgUserId);
-          window.__adSession = { session, sig, minWatchMs };
-          window.open(adUrl, "_blank");
+        // Open the task URL
+        const task = tasks.find(t => t.id === sheet.kind);
+        if (task) {
+          window.open(task.url, "_blank");
           setSheet((s) => ({ ...s, step: "check" }));
         }
       } else {
-        if (sheet.kind === "tg") {
-          const r = await api.subscribe.verify("tg");
-          alert(r.valid ? `Reward granted: ${r.amount} USDT` : "Belum join channel");
-          if (r.valid) close();
-        } else if (sheet.kind === "x") {
-          const r = await api.subscribe.verify("x");
-          alert(`Reward granted: ${r.amount} USDT`);
-          close();
-        } else if (sheet.kind === "ads") {
-          const s = window.__adSession;
-          if (!s) return alert("Session not found");
-          const { session, sig, minWatchMs, adUrl } = await api.ads.start();
-          alert(`Reward granted: ${r.amount} USDT`);
-          close();
+        // Complete the task
+        const result = await db.completeTask(userId, sheet.kind);
+        
+        if (tg?.showAlert) {
+          tg.showAlert(`Task completed! Earned ${result.reward} USDT`);
         }
+        
+        await loadTasks(); // Refresh tasks
+        close();
       }
     } catch (e) {
-      alert(e?.data?.error || e.message || "Error");
+      console.error('Task error:', e);
+      if (tg?.showAlert) {
+        tg.showAlert('Error: ' + e.message);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const isTG = sheet.kind === "tg";
-  const isX = sheet.kind === "x";
-  const isAds = sheet.kind === "ads";
+  const currentTask = tasks.find(t => t.id === sheet.kind);
+  const isCompleted = (taskId) => completedTasks.some(c => c.task_id === taskId);
+  const canComplete = (task) => {
+    if (task.max_completions === 1) {
+      return !isCompleted(task.id);
+    }
+    return true; // Unlimited tasks
+  };
 
-  const title = isTG ? "Subscribe Telegram channel" : isX ? "Subscribe Twitter" : "Watch Ad";
-  const primary = sheet.step === "join" ? (isAds ? "Watch" : "Join") : "Check";
-  const iconCircleBg = isTG ? "#229ED9" : isX ? "#0B0B0B" : "#222A3A";
-  const iconEl = isTG ? <IconTelegram /> : isX ? <IconXAlt /> : <IconTicket />;
+  const getTaskIcon = (task) => {
+    if (task.type === 'ads') return <IconBear />;
+    if (task.url.includes('twitter') || task.url.includes('x.com')) return <IconXAlt />;
+    if (task.url.includes('telegram') || task.url.includes('t.me')) return <IconTelegram />;
+    if (task.url.includes('tiktok')) return <IconTicket />;
+    return <IconTicket />;
+  };
 
   return (
     <div style={{ minHeight: "100dvh", background: BG }}>
       <TopBar title="Tasks" />
 
-      <div style={{ margin: 16, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
-        <TaskItem onClick={() => open("ads")} iconBg="#0B1530" iconColor="#fff" icon={<IconBear />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
-        <TaskItem onClick={() => open("ads")} iconBg="#0B1530" iconColor="#fff" icon={<IconBear />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
-      </div>
+      {/* Ads Tasks */}
+      {tasks.filter(t => t.type === 'ads').length > 0 && (
+        <>
+          <SectionTitle>Advertisement Tasks</SectionTitle>
+          <div style={{ margin: 16, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
+            {tasks.filter(t => t.type === 'ads').map(task => (
+              <TaskItem 
+                key={task.id}
+                onClick={() => canComplete(task) ? open(task.id) : null} 
+                iconBg={task.icon_bg} 
+                iconColor={task.icon_color} 
+                icon={getTaskIcon(task)} 
+                title={task.title} 
+                reward={<Badge><IconUSDT /> {task.reward}</Badge>} 
+              />
+            ))}
+          </div>
+        </>
+      )}
 
-      <SectionTitle>Limited Tasks</SectionTitle>
-      <div style={{ margin: 16, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
-        <TaskItem onClick={() => open("tg")} iconBg="#229ED9" iconColor="#fff" icon={<IconTelegram />} title="Subscribe Telegram channel" reward={<Badge><IconUSDT /> 0.002</Badge>} />
-        <TaskItem onClick={() => open("x")} iconBg="#0B0B0B" iconColor="#fff" icon={<IconXAlt />} title="Subscribe Twitter" reward={<Badge><IconUSDT /> 0.002</Badge>} />
-      </div>
+      {/* Follow Tasks */}
+      {tasks.filter(t => t.type === 'follow').length > 0 && (
+        <>
+          <SectionTitle>Follow Tasks</SectionTitle>
+          <div style={{ margin: 16, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
+            {tasks.filter(t => t.type === 'follow').map(task => (
+              <TaskItem 
+                key={task.id}
+                onClick={() => canComplete(task) ? open(task.id) : null} 
+                iconBg={task.icon_bg} 
+                iconColor={task.icon_color} 
+                icon={getTaskIcon(task)} 
+                title={isCompleted(task.id) ? `${task.title} ✓` : task.title} 
+                reward={<Badge><IconUSDT /> {task.reward}</Badge>} 
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       <SectionTitle>Partner Tasks</SectionTitle>
       <div style={{ margin: 16, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
-        <TaskItem onClick={() => open("tg")} iconBg="#1F6FE5" iconColor="#fff" icon={<IconTelegram />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
-        <TaskItem onClick={() => open("x")} iconBg="#111111" iconColor="#fff" icon={<IconXAlt />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
-        <TaskItem onClick={() => open("tg")} iconBg="#2D7D46" iconColor="#fff" icon={<IconTicket />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
-        <TaskItem onClick={() => open("x")} iconBg="#8E44AD" iconColor="#fff" icon={<IconTicket />} title="Complete task" reward={<Badge><IconUSDT /> 0.002</Badge>} />
+        {tasks.filter(t => t.type === 'partner').map(task => (
+          <TaskItem 
+            key={task.id}
+            onClick={() => canComplete(task) ? open(task.id) : null} 
+            iconBg={task.icon_bg} 
+            iconColor={task.icon_color} 
+            icon={getTaskIcon(task)} 
+            title={isCompleted(task.id) ? `${task.title} ✓` : task.title} 
+            reward={<Badge><IconUSDT /> {task.reward}</Badge>} 
+          />
+        ))}
       </div>
 
       {sheet.open && (
         <div onClick={close} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", display: "flex", alignItems: "flex-end", zIndex: 50 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", background: BG, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, borderTop: `1px solid ${BORDER}` }}>
             <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
-              <div style={{ width: 64, height: 64, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: iconCircleBg, color: "#fff" }}>
-                {iconEl}
+              <div style={{ width: 64, height: 64, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: currentTask?.icon_bg || "#222A3A", color: "#fff" }}>
+                {currentTask ? getTaskIcon(currentTask) : <IconTicket />}
               </div>
             </div>
-            <div style={{ textAlign: "center", color: "#fff", fontSize: 22, fontWeight: 800, marginTop: 12 }}>{title}</div>
+            <div style={{ textAlign: "center", color: "#fff", fontSize: 22, fontWeight: 800, marginTop: 12 }}>{currentTask?.title || 'Task'}</div>
             <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 8, color: "#fff" }}>
               <span style={{ width: 16, height: 16, borderRadius: 999, border: "2px solid #C7CCDA", display: "inline-block" }} />
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}><IconUSDT /> 0.002</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}><IconUSDT /> {currentTask?.reward || 0}</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
               <button onClick={close} style={{ padding: "12px 14px", borderRadius: 12, border: `1px solid ${BORDER}`, background: "#2A2E3E", color: "#E6EAF6", fontWeight: 800 }}>Cancel</button>
-              <button onClick={onPrimary} style={{ padding: "12px 14px", borderRadius: 12, border: 0, background: ACCENT, color: "#0C0F14", fontWeight: 800 }}>{primary}</button>
+              <button onClick={onPrimary} disabled={loading} style={{ padding: "12px 14px", borderRadius: 12, border: 0, background: loading ? "#2A2E3E" : ACCENT, color: loading ? "#95A0B5" : "#0C0F14", fontWeight: 800 }}>
+                {loading ? "Processing..." : (sheet.step === "join" ? "Start Task" : "Complete")}
+              </button>
             </div>
           </div>
         </div>
@@ -341,8 +424,27 @@ function EarnScreen() {
 
 // === REFERRAL ===
 function FriendsScreen() {
-  const refLink = "https://t.me/YourBot?start=ref123";
+  const [userStats, setUserStats] = useState({ referral_code: '', referralCount: 0 });
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    loadUserStats();
+  }, []);
+
+  const loadUserStats = async () => {
+    try {
+      const userId = tg?.initDataUnsafe?.user?.id;
+      if (!userId) return;
+
+      const stats = await db.getUserStats(userId);
+      setUserStats(stats);
+    } catch (error) {
+      console.error('Failed to load user stats:', error);
+    }
+  };
+
+  const refLink = `https://t.me/${tg?.initDataUnsafe?.start_param || 'YourBot'}?start=${userStats.referral_code}`;
+  
   const copy = async () => {
     try { await navigator.clipboard.writeText(refLink); } catch {}
     setCopied(true);
@@ -399,6 +501,12 @@ function FriendsScreen() {
             </button>
           </div>
         </div>
+
+        <div style={{ marginTop: 16, textAlign: 'center', color: '#C7CCDA' }}>
+          <div style={{ fontSize: 14, marginBottom: 4 }}>Your Referrals</div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: ACCENT }}>{userStats.referralCount}</div>
+          <div style={{ fontSize: 12, marginTop: 4 }}>Friends joined through your link</div>
+        </div>
       </div>
       <div style={{ height: 96 }} />
     </div>
@@ -407,17 +515,72 @@ function FriendsScreen() {
 
 // === WALLET (Withdraw) ===
 function WalletScreen() {
+  const [userStats, setUserStats] = useState({ balance: 0 });
   const [amount, setAmount] = useState("");
   const [address, setAddress] = useState("");
   const [memo, setMemo] = useState("");
   const [network, setNetwork] = useState("");
   const [showPicker, setShowPicker] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadUserStats();
+  }, []);
+
+  const loadUserStats = async () => {
+    try {
+      const userId = tg?.initDataUnsafe?.user?.id;
+      if (!userId) return;
+
+      const stats = await db.getUserStats(userId);
+      setUserStats(stats);
+    } catch (error) {
+      console.error('Failed to load user stats:', error);
+    }
+  };
 
   const canContinue = Number(amount) > 0 && address.trim().length > 0;
   const pasteTo = async (setter) => {
     try { const t = await navigator.clipboard.readText(); setter(t); } catch {}
   };
-  const setMax = () => setAmount(String(0)); // set ke balance kamu
+  const setMax = () => setAmount(String(userStats.balance || 0));
+
+  const handleWithdraw = async () => {
+    if (loading || !canContinue || !network) return;
+    setLoading(true);
+
+    try {
+      const userId = tg?.initDataUnsafe?.user?.id;
+      if (!userId) throw new Error('No user ID');
+
+      const withdrawal = await db.createWithdrawal(
+        userId,
+        Number(amount),
+        address,
+        memo,
+        network
+      );
+
+      if (tg?.showAlert) {
+        tg.showAlert(`Withdrawal request submitted! ID: ${withdrawal.id.slice(0, 8)}`);
+      }
+
+      // Reset form
+      setAmount('');
+      setAddress('');
+      setMemo('');
+      setNetwork('');
+      
+      await loadUserStats(); // Refresh balance
+    } catch (error) {
+      console.error('Withdrawal failed:', error);
+      if (tg?.showAlert) {
+        tg.showAlert('Withdrawal failed: ' + error.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fieldWrap = { background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 12 };
 
@@ -428,7 +591,7 @@ function WalletScreen() {
         {/* Amount */}
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", color: "#C7CCDA", fontWeight: 700, marginBottom: 8 }}>
           <div>Amount</div>
-          <div style={{ fontWeight: 600, color: "#9FB0CE" }}>Available: 0 USDT</div>
+          <div style={{ fontWeight: 600, color: "#9FB0CE" }}>Available: {userStats.balance?.toFixed(6) || '0.000000'} USDT</div>
         </div>
         <div style={{ ...fieldWrap, position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -484,18 +647,10 @@ function WalletScreen() {
 
         <div style={{ marginTop: 12 }}>
           <NeonButton
-            disabled={!canContinue}
-            onClick={async () => {
-              try {
-                const payload = { amount: Number(amount), address, memo, network };
-                const r = await api.withdraw.create(payload);
-                alert("Withdraw request submitted: " + r.id);
-              } catch (e) {
-                alert("Withdraw failed: " + (e?.data?.error || e.message));
-              }
-            }}
+            disabled={!canContinue || !network || loading}
+            onClick={handleWithdraw}
           >
-            Request withdraw
+            {loading ? "Processing..." : "Request withdraw"}
           </NeonButton>
         </div>
       </div>
@@ -532,7 +687,7 @@ function About() {
             <li>Data Usage – We only access minimal necessary Telegram data and never sell it.</li>
             <li>Fair Play – No cheats, bots, or exploits.</li>
             <li>Changes & Updates – Features may change without notice.</li>
-            <li>This app isn’t affiliated with Telegram.</li>
+            <li>This app isn't affiliated with Telegram.</li>
           </ul>
         </div>
       </div>
@@ -621,16 +776,35 @@ function BottomBar({ value, onChange }) {
 // === APP ===
 export default function App() {
   const [tab, setTab] = useState("home");
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
+    initializeApp();
+  }, []);
+
+  const initializeApp = async () => {
     document.body.style.background = BG;
+    
     // full-screen saat di Telegram
     try {
       const wa = window.Telegram?.WebApp;
       wa?.ready();
       wa?.expand();
+      
+      // Initialize user
+      if (wa?.initDataUnsafe?.user) {
+        const telegramUser = wa.initDataUnsafe.user;
+        const dbUser = await db.getOrCreateUser(telegramUser);
+        setUser(dbUser);
+        
+        // Process referral if present
+        const startParam = wa.initDataUnsafe.start_param;
+        if (startParam && startParam.startsWith('REF')) {
+          await db.processReferral(telegramUser.id, startParam);
+        }
+      }
     } catch {}
-  }, []);
+  };
 
   return (
     <div style={{ minHeight: "100dvh", color: "#fff", background: BG, fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" }}>
