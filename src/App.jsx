@@ -157,6 +157,7 @@ function HomeScreen() {
   const [claimStatus, setClaimStatus] = useState({ canClaim: false, nextDay: 1, alreadyClaimed: false });
   const [userStats, setUserStats] = useState({ balance: 0, total_earned: 0 });
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     loadData();
@@ -164,9 +165,12 @@ function HomeScreen() {
 
   const loadData = async () => {
     try {
+      setError('');
       const userId = tg?.initDataUnsafe?.user?.id;
       if (!userId) {
-        console.warn('No Telegram user ID available');
+        console.warn('No Telegram user ID available, using demo data');
+        setClaimStatus({ canClaim: true, nextDay: 1, alreadyClaimed: false });
+        setUserStats({ balance: 0, total_earned: 0 });
         return;
       }
 
@@ -179,17 +183,23 @@ function HomeScreen() {
       setUserStats(stats);
     } catch (error) {
       console.error('Failed to load data:', error);
+      setError('Failed to load data: ' + error.message);
+      // Set demo data on error
+      setClaimStatus({ canClaim: true, nextDay: 1, alreadyClaimed: false });
+      setUserStats({ balance: 0, total_earned: 0 });
     }
   };
 
   const claim = async () => {
     if (busy || !claimStatus.canClaim) return;
     setBusy(true);
+    setError('');
     
     try {
       const userId = tg?.initDataUnsafe?.user?.id;
       if (!userId) {
-        throw new Error('No Telegram user ID available');
+        setError('No Telegram user ID available');
+        return;
       }
 
       const result = await db.claimDailyReward(userId);
@@ -201,6 +211,7 @@ function HomeScreen() {
       }
     } catch (error) {
       console.error('Claim failed:', error);
+      setError('Claim failed: ' + error.message);
       if (tg?.showAlert) {
         tg.showAlert('❌ Claim failed: ' + error.message);
       }
@@ -213,6 +224,12 @@ function HomeScreen() {
     <div style={{ minHeight: "100dvh", background: BG }}>
       <TopBar title="Daily reward" />
       <div style={{ maxWidth: 480, margin: "0 auto", padding: 16 }}>
+        {error && (
+          <div style={{ background: '#ff4444', color: '#fff', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 14 }}>
+            {error}
+          </div>
+        )}
+        
         {/* Balance Display */}
         <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 16, marginBottom: 16, textAlign: 'center', color: '#fff' }}>
           <div style={{ fontSize: 14, color: '#C7CCDA', marginBottom: 4 }}>Your Balance</div>
@@ -262,6 +279,7 @@ function EarnScreen() {
   const [completedTasks, setCompletedTasks] = useState([]);
   const [sheet, setSheet] = useState({ open: false, kind: null, step: "join" });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     loadTasks();
@@ -269,9 +287,77 @@ function EarnScreen() {
 
   const loadTasks = async () => {
     try {
+      setError('');
       const userId = tg?.initDataUnsafe?.user?.id;
       if (!userId) {
-        console.warn('No Telegram user ID available');
+        console.warn('No Telegram user ID available, loading demo tasks');
+        // Load demo tasks when no user ID
+        setTasks([
+          {
+            id: 'demo-ads-1',
+            title: 'Watch Advertisement #1',
+            type: 'ads',
+            url: 'https://otieu.com/4/9907519',
+            reward: 0.002,
+            icon_bg: '#C6FF3E',
+            icon_color: '#0C0F14'
+          },
+          {
+            id: 'demo-ads-2',
+            title: 'Watch Advertisement #2',
+            type: 'ads',
+            url: 'https://otieu.com/4/9907513',
+            reward: 0.002,
+            icon_bg: '#C6FF3E',
+            icon_color: '#0C0F14'
+          },
+          {
+            id: 'demo-twitter',
+            title: 'Follow us on Twitter',
+            type: 'follow',
+            url: 'https://otieu.com/4/9907519',
+            reward: 0.005,
+            icon_bg: '#1DA1F2',
+            icon_color: '#FFFFFF'
+          },
+          {
+            id: 'demo-binance',
+            title: 'Register on Binance',
+            type: 'partner',
+            url: 'https://accounts.bmwweb.biz/register?ref=535958866',
+            reward: 0.01,
+            icon_bg: '#F3BA2F',
+            icon_color: '#000000'
+          },
+          {
+            id: 'demo-kucoin',
+            title: 'Register on KuCoin',
+            type: 'partner',
+            url: 'https://www.kucoin.com/r/rf/QBSTDC9A',
+            reward: 0.01,
+            icon_bg: '#20D4A7',
+            icon_color: '#FFFFFF'
+          },
+          {
+            id: 'demo-tiktok',
+            title: 'Follow us on TikTok',
+            type: 'partner',
+            url: 'https://vt.tiktok.com/ZSHn3Hvmpk6a8-IMDAm/',
+            reward: 0.008,
+            icon_bg: '#FF0050',
+            icon_color: '#FFFFFF'
+          },
+          {
+            id: 'demo-telegram',
+            title: 'Join Telegram Channel',
+            type: 'partner',
+            url: 'https://t.me/instanmoneyairdrop',
+            reward: 0.005,
+            icon_bg: '#0088CC',
+            icon_color: '#FFFFFF'
+          }
+        ]);
+        setCompletedTasks([]);
         return;
       }
 
@@ -284,6 +370,7 @@ function EarnScreen() {
       setCompletedTasks(userCompletions);
     } catch (error) {
       console.error('Failed to load tasks:', error);
+      setError('Failed to load tasks: ' + error.message);
     }
   };
 
@@ -293,11 +380,13 @@ function EarnScreen() {
   const onPrimary = async () => {
     if (loading) return;
     setLoading(true);
+    setError('');
     
     try {
       const userId = tg?.initDataUnsafe?.user?.id;
       if (!userId) {
-        throw new Error('No Telegram user ID available');
+        setError('No Telegram user ID available');
+        return;
       }
 
       if (sheet.step === "join") {
@@ -320,6 +409,7 @@ function EarnScreen() {
       }
     } catch (e) {
       console.error('Task error:', e);
+      setError('Task error: ' + e.message);
       if (tg?.showAlert) {
         tg.showAlert('❌ Error: ' + e.message);
       }
@@ -348,6 +438,12 @@ function EarnScreen() {
   return (
     <div style={{ minHeight: "100dvh", background: BG }}>
       <TopBar title="Tasks" />
+      
+      {error && (
+        <div style={{ margin: 16, background: '#ff4444', color: '#fff', padding: 12, borderRadius: 8, fontSize: 14 }}>
+          {error}
+        </div>
+      )}
 
       {/* Ads Tasks */}
       {tasks.filter(t => t.type === 'ads').length > 0 && (
@@ -389,20 +485,25 @@ function EarnScreen() {
         </>
       )}
 
-      <SectionTitle>Partner Tasks</SectionTitle>
-      <div style={{ margin: 16, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
-        {tasks.filter(t => t.type === 'partner').map(task => (
-          <TaskItem 
-            key={task.id}
-            onClick={() => canComplete(task) ? open(task.id) : null} 
-            iconBg={task.icon_bg} 
-            iconColor={task.icon_color} 
-            icon={getTaskIcon(task)} 
-            title={isCompleted(task.id) ? `${task.title} ✓` : task.title} 
-            reward={<Badge><IconUSDT /> {task.reward}</Badge>} 
-          />
-        ))}
-      </div>
+      {/* Partner Tasks */}
+      {tasks.filter(t => t.type === 'partner').length > 0 && (
+        <>
+          <SectionTitle>Partner Tasks</SectionTitle>
+          <div style={{ margin: 16, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
+            {tasks.filter(t => t.type === 'partner').map(task => (
+              <TaskItem 
+                key={task.id}
+                onClick={() => canComplete(task) ? open(task.id) : null} 
+                iconBg={task.icon_bg} 
+                iconColor={task.icon_color} 
+                icon={getTaskIcon(task)} 
+                title={isCompleted(task.id) ? `${task.title} ✓` : task.title} 
+                reward={<Badge><IconUSDT /> {task.reward}</Badge>} 
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {sheet.open && (
         <div onClick={close} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", display: "flex", alignItems: "flex-end", zIndex: 50 }}>

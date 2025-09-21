@@ -12,20 +12,38 @@ export default async function handler(req, res) {
 
   console.log('=== Subscribe Verify Request ===');
   console.log('Method:', req.method);
-  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Headers keys:', Object.keys(req.headers || {}));
+  console.log('Content-Type:', req.headers['content-type']);
   console.log('Body type:', typeof req.body);
-  console.log('Body preview:', req.body ? JSON.stringify(req.body).substring(0, 200) + '...' : 'empty');
+  console.log('Raw body:', req.body);
 
   try {
-    // Parse body jika belum terparsing (untuk Edge Runtime)
+    // Parse body untuk berbagai runtime
     let body = req.body;
-    if (typeof req.json === 'function' && !body) {
+    
+    // Untuk Edge Runtime atau jika body belum terparsing
+    if (!body && typeof req.json === 'function') {
       try {
         body = await req.json();
         console.log('Parsed body from req.json():', body);
       } catch (e) {
         console.warn('Failed to parse JSON body:', e.message);
-        body = null;
+      }
+    }
+    
+    // Untuk Node.js runtime, body mungkin sudah terparsing
+    if (!body && req.body) {
+      body = req.body;
+      console.log('Using req.body directly:', body);
+    }
+    
+    // Jika body masih string, coba parse
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+        console.log('Parsed string body to object:', body);
+      } catch (e) {
+        console.warn('Body is string but not JSON:', body);
       }
     }
 

@@ -17,13 +17,24 @@ function hget(req, key) {
 export function extractInitData(req, body) {
   let init = '';
   
+  console.log('=== extractInitData Debug ===');
+  console.log('Request method:', req.method);
+  console.log('Request URL:', req.url);
+  console.log('Headers available:', Object.keys(req.headers || {}));
+  console.log('Body type:', typeof body);
+  console.log('Body content:', body ? JSON.stringify(body).substring(0, 200) : 'null');
+  
   // 1) header - coba berbagai variasi nama header
   init = 
     hget(req, 'x-telegram-init') ||
     hget(req, 'x-telegram-init-data') ||
     hget(req, 'x-tg-init-data') ||
     hget(req, 'x-tg-initdata') ||
+    hget(req, 'x-telegram-initdata') ||
+    hget(req, 'telegram-init-data') ||
     hget(req, 'authorization')?.replace(/^Bearer\s+/i, '') || '';
+
+  console.log('Header init found:', !!init, init ? init.length : 0);
 
   // 2) body - handle berbagai format body
   if (!init && body) {
@@ -31,14 +42,17 @@ export function extractInitData(req, body) {
       try {
         const parsed = JSON.parse(body);
         init = parsed.initData || '';
+        console.log('Parsed from JSON body:', !!init);
       } catch {
         // jika body adalah raw initData string
         if (body.includes('query_id=') || body.includes('user=')) {
           init = body;
+          console.log('Raw initData from body:', !!init);
         }
       }
     } else if (typeof body === 'object') {
       init = body.initData || '';
+      console.log('Object body initData:', !!init);
     }
   }
 
@@ -51,7 +65,9 @@ export function extractInitData(req, body) {
         url.searchParams.get('initData') ||
         url.searchParams.get('tgWebAppData') ||
         url.searchParams.get('tg_init_data') ||
+        url.searchParams.get('telegram_init_data') ||
         '';
+      console.log('Query param init found:', !!init);
     } catch (e) {
       console.warn('Failed to parse URL for query params:', e.message);
     }
@@ -61,13 +77,15 @@ export function extractInitData(req, body) {
   if (!init && req.body && typeof req.body === 'string') {
     if (req.body.includes('query_id=') || req.body.includes('user=')) {
       init = req.body;
+      console.log('Fallback raw body init:', !!init);
     }
   }
 
   console.log('extractInitData result:', {
     hasInit: !!init,
     initLength: init.length,
-    initPreview: init ? init.substring(0, 50) + '...' : 'empty'
+    initPreview: init ? init.substring(0, 100) + '...' : 'empty',
+    source: init ? 'found' : 'missing'
   });
 
   return init || '';

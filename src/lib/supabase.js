@@ -32,7 +32,13 @@ export const db = {
   async getOrCreateUser(telegramUser) {
     if (!supabase) {
       console.error('Supabase not initialized')
-      return { id: telegramUser.id, balance: 0, total_earned: 0, referral_code: 'DEMO' }
+      return { 
+        id: telegramUser?.id || 0, 
+        balance: 0, 
+        total_earned: 0, 
+        referral_code: 'DEMO',
+        username: telegramUser?.username || 'demo'
+      }
     }
 
     try {
@@ -64,13 +70,25 @@ export const db = {
 
       if (insertError) {
         console.error('Error creating user:', insertError)
-        return { id: telegramUser.id, balance: 0, total_earned: 0, referral_code: 'DEMO' }
+        return { 
+          id: telegramUser.id, 
+          balance: 0, 
+          total_earned: 0, 
+          referral_code: 'DEMO',
+          username: telegramUser.username
+        }
       }
 
       return newUser
     } catch (error) {
       console.error('Database error in getOrCreateUser:', error)
-      return { id: telegramUser.id, balance: 0, total_earned: 0, referral_code: 'DEMO' }
+      return { 
+        id: telegramUser?.id || 0, 
+        balance: 0, 
+        total_earned: 0, 
+        referral_code: 'DEMO',
+        username: telegramUser?.username || 'demo'
+      }
     }
   },
 

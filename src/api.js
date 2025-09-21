@@ -84,31 +84,45 @@ async function j(method, url, body) {
   
   if (!initData) {
     console.error('No initData available for API call');
-    throw new Error('No Telegram initData available');
+    // Don't throw error, let backend handle it
+    console.warn('Proceeding without initData - backend will handle validation');
   }
 
-  // Kirim initData via multiple channels untuk memastikan backend bisa ambil
+  // Kirim initData via multiple channels
   const headers = {
     'Content-Type': 'application/json',
-    'X-Telegram-Init': initData,
-    'X-Telegram-Init-Data': initData,
-    'X-TG-Init-Data': initData,
-    'X-TG-InitData': initData,
   };
 
-  // Tambahkan initData ke body juga
-  const payload = body ? { ...body, initData } : { initData };
+  // Add initData to headers if available
+  if (initData) {
+    headers['X-Telegram-Init'] = initData;
+    headers['X-Telegram-Init-Data'] = initData;
+    headers['X-TG-Init-Data'] = initData;
+    headers['X-TG-InitData'] = initData;
+    headers['X-Telegram-InitData'] = initData;
+    headers['Telegram-Init-Data'] = initData;
+  }
 
-  // Tambahkan ke query string sebagai fallback
-  const queryParam = 'init=' + encodeURIComponent(initData);
-  const separator = url.includes('?') ? '&' : '?';
-  const finalUrl = url + separator + queryParam;
+  // Tambahkan initData ke body
+  const payload = body ? { ...body } : {};
+  if (initData) {
+    payload.initData = initData;
+  }
+
+  // Tambahkan ke query string jika ada initData
+  let finalUrl = url;
+  if (initData) {
+    const queryParam = 'init=' + encodeURIComponent(initData);
+    const separator = url.includes('?') ? '&' : '?';
+    finalUrl = url + separator + queryParam;
+  }
 
   console.log('Making API request:', {
     method,
-    url: finalUrl.replace(initData, 'INIT_DATA'),
+    url: finalUrl.replace(initData || '', 'INIT_DATA'),
     hasBody: !!body,
-    headersCount: Object.keys(headers).length
+    headersCount: Object.keys(headers).length,
+    hasInitData: !!initData
   });
 
   try {
