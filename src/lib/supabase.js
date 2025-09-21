@@ -4,17 +4,20 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+  console.error('Missing Supabase environment variables')
+  // Don't throw error in development, just log it
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = supabaseUrl && supabaseAnonKey ? 
+  createClient(supabaseUrl, supabaseAnonKey) : null
 
 // Helper function to get current user ID from Telegram
 export function getCurrentUserId() {
   try {
     const tg = window?.Telegram?.WebApp
     if (!tg?.initDataUnsafe?.user?.id) {
-      throw new Error('No Telegram user data available')
+      console.warn('No Telegram user data available')
+      return null
     }
     return tg.initDataUnsafe.user.id
   } catch (error) {
@@ -27,280 +30,373 @@ export function getCurrentUserId() {
 export const db = {
   // User operations
   async getOrCreateUser(telegramUser) {
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', telegramUser.id)
-      .single()
-
-    if (existingUser) {
-      return existingUser
+    if (!supabase) {
+      console.error('Supabase not initialized')
+      return { id: telegramUser.id, balance: 0, total_earned: 0, referral_code: 'DEMO' }
     }
 
-    // Create new user with referral code
-    const referralCode = `REF${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`
-    
-    const { data: newUser, error } = await supabase
-      .from('users')
-      .insert({
-        id: telegramUser.id,
-        username: telegramUser.username,
-        first_name: telegramUser.first_name,
-        last_name: telegramUser.last_name,
-        referral_code: referralCode
-      })
-      .select()
-      .single()
+    try {
+      // Check if user exists
+      const { data: existingUser, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', telegramUser.id)
+        .single()
 
-    if (error) throw error
-    return newUser
+      if (existingUser && !fetchError) {
+        return existingUser
+      }
+
+      // Create new user with referral code
+      const referralCode = `REF${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`
+      
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert({
+          id: telegramUser.id,
+          username: telegramUser.username,
+          first_name: telegramUser.first_name,
+          last_name: telegramUser.last_name,
+          referral_code: referralCode
+        })
+        .select()
+        .single()
+
+      if (insertError) {
+        console.error('Error creating user:', insertError)
+        return { id: telegramUser.id, balance: 0, total_earned: 0, referral_code: 'DEMO' }
+      }
+
+      return newUser
+    } catch (error) {
+      console.error('Database error in getOrCreateUser:', error)
+      return { id: telegramUser.id, balance: 0, total_earned: 0, referral_code: 'DEMO' }
+    }
   },
 
   // Daily claims
   async getDailyClaimStatus(userId) {
-    const today = new Date().toISOString().split('T')[0]
-    
-    const { data } = await supabase
-      .from('daily_claims')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('claim_date', today)
-      .single()
+    if (!supabase) {
+      return { canClaim: false, nextDay: 1, alreadyClaimed: false }
+    }
 
-    const { data: allClaims } = await supabase
-      .from('daily_claims')
-      .select('day_number')
-      .eq('user_id', userId)
-      .order('day_number', { ascending: false })
-      .limit(1)
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      
+      const { data: todayClaim } = await supabase
+        .from('daily_claims')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('claim_date', today)
+        .single()
 
-    const lastDay = allClaims?.[0]?.day_number || 0
-    const nextDay = Math.min(lastDay + 1, 9)
-    
-    return {
-      canClaim: !data && nextDay <= 9,
-      nextDay,
-      alreadyClaimed: !!data
+      const { data: allClaims } = await supabase
+        .from('daily_claims')
+        .select('day_number')
+        .eq('user_id', userId)
+        .order('day_number', { ascending: false })
+        .limit(1)
+
+      const lastDay = allClaims?.[0]?.day_number || 0
+      const nextDay = Math.min(lastDay + 1, 9)
+      
+      return {
+        canClaim: !todayClaim && nextDay <= 9,
+        nextDay,
+        alreadyClaimed: !!todayClaim
+      }
+    } catch (error) {
+      console.error('Error getting daily claim status:', error)
+      return { canClaim: false, nextDay: 1, alreadyClaimed: false }
     }
   },
 
   async claimDailyReward(userId) {
-    const status = await this.getDailyClaimStatus(userId)
-    if (!status.canClaim) {
-      throw new Error('Already claimed today or completed all days')
+    if (!supabase) {
+      throw new Error('Database not available')
     }
 
-    const rewards = [0.002, 0.004, 0.006, 0.008, 0.01, 0.012, 0.014, 0.016, 0.018]
-    const amount = rewards[status.nextDay - 1]
-    const today = new Date().toISOString().split('T')[0]
+    try {
+      const status = await this.getDailyClaimStatus(userId)
+      if (!status.canClaim) {
+        throw new Error('Already claimed today or completed all days')
+      }
 
-    const { data: claim, error } = await supabase
-      .from('daily_claims')
-      .insert({
-        user_id: userId,
-        claim_date: today,
-        day_number: status.nextDay,
-        amount
+      const rewards = [0.002, 0.004, 0.006, 0.008, 0.01, 0.012, 0.014, 0.016, 0.018]
+      const amount = rewards[status.nextDay - 1]
+      const today = new Date().toISOString().split('T')[0]
+
+      // Create daily claim record
+      const { data: claim, error: claimError } = await supabase
+        .from('daily_claims')
+        .insert({
+          user_id: userId,
+          claim_date: today,
+          day_number: status.nextDay,
+          amount
+        })
+        .select()
+        .single()
+
+      if (claimError) throw claimError
+
+      // Update user balance using the stored function
+      const { error: balanceError } = await supabase.rpc('update_user_balance', {
+        p_user_id: userId,
+        p_amount: amount,
+        p_type: 'daily_claim',
+        p_description: `Daily reward day ${status.nextDay}`,
+        p_reference_id: claim.id
       })
-      .select()
-      .single()
 
-    if (error) throw error
+      if (balanceError) throw balanceError
 
-    // Update user balance
-    await supabase.rpc('update_user_balance', {
-      p_user_id: userId,
-      p_amount: amount,
-      p_type: 'daily_claim',
-      p_description: `Daily reward day ${status.nextDay}`,
-      p_reference_id: claim.id
-    })
-
-    return { amount, day: status.nextDay }
+      return { amount, day: status.nextDay }
+    } catch (error) {
+      console.error('Error claiming daily reward:', error)
+      throw error
+    }
   },
 
   // Tasks
   async getTasks() {
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('is_active', true)
-      .order('created_at')
+    if (!supabase) {
+      return []
+    }
 
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at')
+
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      console.error('Error getting tasks:', error)
+      return []
+    }
   },
 
   async getUserTaskCompletions(userId) {
-    const { data, error } = await supabase
-      .from('user_tasks')
-      .select('task_id, completed_at')
-      .eq('user_id', userId)
+    if (!supabase) {
+      return []
+    }
 
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('user_tasks')
+        .select('task_id, completed_at')
+        .eq('user_id', userId)
+
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      console.error('Error getting user task completions:', error)
+      return []
+    }
   },
 
   async completeTask(userId, taskId, sessionData = null) {
-    // Get task details
-    const { data: task, error: taskError } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('id', taskId)
-      .single()
+    if (!supabase) {
+      throw new Error('Database not available')
+    }
 
-    if (taskError) throw taskError
-
-    // Check if user already completed this task (for one-time tasks)
-    if (task.max_completions === 1) {
-      const { data: existing } = await supabase
-        .from('user_tasks')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('task_id', taskId)
+    try {
+      // Get task details
+      const { data: task, error: taskError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('id', taskId)
         .single()
 
-      if (existing) {
-        throw new Error('Task already completed')
+      if (taskError) throw taskError
+
+      // Check if user already completed this task (for limited tasks)
+      if (task.max_completions === 1) {
+        const { data: existing } = await supabase
+          .from('user_tasks')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('task_id', taskId)
+          .single()
+
+        if (existing) {
+          throw new Error('Task already completed')
+        }
       }
-    }
 
-    // Complete the task
-    const { data: completion, error } = await supabase
-      .from('user_tasks')
-      .insert({
-        user_id: userId,
-        task_id: taskId,
-        reward_amount: task.reward,
-        session_data: sessionData
-      })
-      .select()
-      .single()
+      // Complete the task
+      const { data: completion, error: completionError } = await supabase
+        .from('user_tasks')
+        .insert({
+          user_id: userId,
+          task_id: taskId,
+          reward_amount: task.reward,
+          session_data: sessionData
+        })
+        .select()
+        .single()
 
-    if (error) throw error
+      if (completionError) throw completionError
 
-    // Update user balance
-    await supabase.rpc('update_user_balance', {
-      p_user_id: userId,
-      p_amount: task.reward,
-      p_type: 'task_reward',
-      p_description: `Task: ${task.title}`,
-      p_reference_id: completion.id
-    })
-
-    // Handle referral bonus (10% to referrer)
-    const { data: user } = await supabase
-      .from('users')
-      .select('referred_by')
-      .eq('id', userId)
-      .single()
-
-    if (user?.referred_by) {
-      const referralBonus = task.reward * 0.1
-      await supabase.rpc('update_user_balance', {
-        p_user_id: user.referred_by,
-        p_amount: referralBonus,
-        p_type: 'referral_bonus',
-        p_description: `Referral bonus from task: ${task.title}`,
+      // Update user balance
+      const { error: balanceError } = await supabase.rpc('update_user_balance', {
+        p_user_id: userId,
+        p_amount: task.reward,
+        p_type: 'task_reward',
+        p_description: `Task: ${task.title}`,
         p_reference_id: completion.id
       })
-    }
 
-    return { reward: task.reward }
+      if (balanceError) throw balanceError
+
+      // Handle referral bonus (10% to referrer)
+      const { data: user } = await supabase
+        .from('users')
+        .select('referred_by')
+        .eq('id', userId)
+        .single()
+
+      if (user?.referred_by) {
+        const referralBonus = task.reward * 0.1
+        await supabase.rpc('update_user_balance', {
+          p_user_id: user.referred_by,
+          p_amount: referralBonus,
+          p_type: 'referral_bonus',
+          p_description: `Referral bonus from task: ${task.title}`,
+          p_reference_id: completion.id
+        })
+      }
+
+      return { reward: task.reward }
+    } catch (error) {
+      console.error('Error completing task:', error)
+      throw error
+    }
   },
 
   // Withdrawals
   async createWithdrawal(userId, amount, address, memo, network) {
-    // Check user balance
-    const { data: user } = await supabase
-      .from('users')
-      .select('balance')
-      .eq('id', userId)
-      .single()
-
-    if (!user || user.balance < amount) {
-      throw new Error('Insufficient balance')
+    if (!supabase) {
+      throw new Error('Database not available')
     }
 
-    // Create withdrawal request
-    const { data: withdrawal, error } = await supabase
-      .from('withdrawals')
-      .insert({
-        user_id: userId,
-        amount,
-        address,
-        memo,
-        network
+    try {
+      // Check user balance
+      const { data: user } = await supabase
+        .from('users')
+        .select('balance')
+        .eq('id', userId)
+        .single()
+
+      if (!user || user.balance < amount) {
+        throw new Error('Insufficient balance')
+      }
+
+      // Create withdrawal request
+      const { data: withdrawal, error: withdrawalError } = await supabase
+        .from('withdrawals')
+        .insert({
+          user_id: userId,
+          amount,
+          address,
+          memo,
+          network
+        })
+        .select()
+        .single()
+
+      if (withdrawalError) throw withdrawalError
+
+      // Deduct from user balance
+      const { error: balanceError } = await supabase.rpc('update_user_balance', {
+        p_user_id: userId,
+        p_amount: -amount,
+        p_type: 'withdrawal',
+        p_description: `Withdrawal to ${network}`,
+        p_reference_id: withdrawal.id
       })
-      .select()
-      .single()
 
-    if (error) throw error
+      if (balanceError) throw balanceError
 
-    // Deduct from user balance
-    await supabase.rpc('update_user_balance', {
-      p_user_id: userId,
-      p_amount: -amount,
-      p_type: 'withdrawal',
-      p_description: `Withdrawal to ${network}`,
-      p_reference_id: withdrawal.id
-    })
-
-    return withdrawal
+      return withdrawal
+    } catch (error) {
+      console.error('Error creating withdrawal:', error)
+      throw error
+    }
   },
 
   // Referrals
   async processReferral(referredUserId, referralCode) {
-    if (!referralCode) return
+    if (!supabase || !referralCode) return
 
-    // Find referrer by code
-    const { data: referrer } = await supabase
-      .from('users')
-      .select('id')
-      .eq('referral_code', referralCode)
-      .single()
+    try {
+      // Find referrer by code
+      const { data: referrer } = await supabase
+        .from('users')
+        .select('id')
+        .eq('referral_code', referralCode)
+        .single()
 
-    if (!referrer || referrer.id === referredUserId) return
+      if (!referrer || referrer.id === referredUserId) return
 
-    // Check if user is already referred
-    const { data: existing } = await supabase
-      .from('referrals')
-      .select('id')
-      .eq('referred_id', referredUserId)
-      .single()
+      // Check if user is already referred
+      const { data: existing } = await supabase
+        .from('referrals')
+        .select('id')
+        .eq('referred_id', referredUserId)
+        .single()
 
-    if (existing) return
+      if (existing) return
 
-    // Create referral relationship
-    await supabase
-      .from('referrals')
-      .insert({
-        referrer_id: referrer.id,
-        referred_id: referredUserId
-      })
+      // Create referral relationship
+      await supabase
+        .from('referrals')
+        .insert({
+          referrer_id: referrer.id,
+          referred_id: referredUserId
+        })
 
-    // Update referred user
-    await supabase
-      .from('users')
-      .update({ referred_by: referrer.id })
-      .eq('id', referredUserId)
+      // Update referred user
+      await supabase
+        .from('users')
+        .update({ referred_by: referrer.id })
+        .eq('id', referredUserId)
+
+      console.log('Referral processed successfully')
+    } catch (error) {
+      console.error('Error processing referral:', error)
+    }
   },
 
   async getUserStats(userId) {
-    const { data: user } = await supabase
-      .from('users')
-      .select('balance, total_earned, referral_code')
-      .eq('id', userId)
-      .single()
+    if (!supabase) {
+      return { balance: 0, total_earned: 0, referral_code: 'DEMO', referralCount: 0 }
+    }
 
-    const { data: referrals } = await supabase
-      .from('referrals')
-      .select('id')
-      .eq('referrer_id', userId)
+    try {
+      const { data: user } = await supabase
+        .from('users')
+        .select('balance, total_earned, referral_code')
+        .eq('id', userId)
+        .single()
 
-    return {
-      ...user,
-      referralCount: referrals?.length || 0
+      const { data: referrals } = await supabase
+        .from('referrals')
+        .select('id')
+        .eq('referrer_id', userId)
+
+      return {
+        balance: user?.balance || 0,
+        total_earned: user?.total_earned || 0,
+        referral_code: user?.referral_code || 'DEMO',
+        referralCount: referrals?.length || 0
+      }
+    } catch (error) {
+      console.error('Error getting user stats:', error)
+      return { balance: 0, total_earned: 0, referral_code: 'DEMO', referralCount: 0 }
     }
   }
 }
