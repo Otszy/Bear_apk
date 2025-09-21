@@ -63,17 +63,24 @@ function resolveInitData() {
 }
 
 export function getInitData() {
-  try { 
-    window?.Telegram?.WebApp?.ready?.(); 
+  // Ensure Telegram WebApp is ready
+  try {
+    const tg = window?.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      console.log('Telegram WebApp ready called');
+    }
   } catch (e) {
-    console.warn('Failed to call Telegram WebApp ready:', e.message);
+    console.warn('Failed to initialize Telegram WebApp:', e.message);
   }
   
   const initData = resolveInitData();
   console.log('Final initData:', {
     hasData: !!initData,
     length: initData.length,
-    preview: initData ? initData.substring(0, 50) + '...' : 'empty'
+    preview: initData ? initData.substring(0, 100) + '...' : 'empty',
+    source: initData.includes('demo_hash') ? 'demo' : 'telegram'
   });
   
   return initData;
@@ -83,9 +90,7 @@ async function j(method, url, body) {
   const initData = getInitData();
   
   if (!initData) {
-    console.error('No initData available for API call');
-    // Don't throw error, let backend handle it
-    console.warn('Proceeding without initData - backend will handle validation');
+    console.warn('⚠️ No initData available for API call - using demo mode');
   }
 
   // Kirim initData via multiple channels

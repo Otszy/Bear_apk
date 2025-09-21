@@ -620,8 +620,11 @@ function WalletScreen() {
 
   const loadUserStats = async () => {
     try {
-      const userId = getUserId();
-      console.log('Loading wallet stats for user:', userId);
+      const userId = tg?.initDataUnsafe?.user?.id;
+      if (!userId) {
+        console.warn('No Telegram user ID available');
+        return;
+      }
 
       const stats = await db.getUserStats(userId);
       setUserStats(stats);
@@ -641,8 +644,10 @@ function WalletScreen() {
     setLoading(true);
 
     try {
-      const userId = getUserId();
-      console.log('Creating withdrawal for user:', userId);
+      const userId = tg?.initDataUnsafe?.user?.id;
+      if (!userId) {
+        throw new Error('No Telegram user ID available');
+      }
 
       const withdrawal = await db.createWithdrawal(
         userId,
@@ -876,30 +881,32 @@ export default function App() {
   const initializeApp = async () => {
     document.body.style.background = BG;
     
-    // full-screen saat di Telegram
     try {
-      const wa = window.Telegram?.WebApp;
-      wa?.ready();
-      wa?.expand();
+      // Initialize Telegram WebApp
+      const tgApp = getTelegramWebApp();
       
       // Initialize user
-      if (wa?.initDataUnsafe?.user) {
-        const telegramUser = wa.initDataUnsafe.user;
+      const userData = getUserData();
+      console.log('Initializing app for user:', userData);
+      
+      if (userData.id) {
         const dbUser = await db.getOrCreateUser(telegramUser);
         setUser(dbUser);
         
         // Process referral if present
-        const startParam = wa.initDataUnsafe.start_param;
+        const startParam = tgApp?.initDataUnsafe?.start_param;
         if (startParam && startParam.startsWith('REF')) {
           try {
-            await db.processReferral(telegramUser.id, startParam);
+            await db.processReferral(userData.id, startParam);
             console.log('Referral processed:', startParam);
           } catch (error) {
             console.error('Failed to process referral:', error);
           }
         }
       }
-    } catch {}
+    } catch (e) {
+      console.error('App initialization error:', e);
+    }
   };
 
   return (
