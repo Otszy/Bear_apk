@@ -33,8 +33,8 @@ async function j(method, url, body) {
   const initData = getInitData();
   const payload = body ? { ...body, initData } : { initData };
 
-  // kirim via header + body + query sekaligus (biar anti-miss)
-  const q = initData ? `?init=${encodeURIComponent(initData)}` : '';
+  // kirim via header + body + query (anti miss)
+  const q = initData ? ((url.includes('?') ? '&' : '?') + 'init=' + encodeURIComponent(initData)) : '';
   const r = await fetch(url + q, {
     method,
     headers: {
