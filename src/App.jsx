@@ -1,7 +1,65 @@
 import React, { useState, useEffect } from "react";
 import { db } from './lib/supabase';
 
-const tg = (typeof window !== 'undefined') ? window.Telegram?.WebApp : undefined;
+// Enhanced Telegram WebApp integration
+const getTelegramWebApp = () => {
+  if (typeof window === 'undefined') return null;
+  
+  // Wait for Telegram WebApp to be ready
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    try {
+      tg.ready();
+      tg.expand();
+      console.log('Telegram WebApp initialized:', {
+        initData: tg.initData ? 'present' : 'missing',
+        initDataUnsafe: tg.initDataUnsafe ? 'present' : 'missing',
+        user: tg.initDataUnsafe?.user ? 'present' : 'missing',
+        userId: tg.initDataUnsafe?.user?.id || 'missing'
+      });
+    } catch (e) {
+      console.warn('Telegram WebApp initialization error:', e);
+    }
+  }
+  return tg;
+};
+
+const tg = getTelegramWebApp();
+
+// Get user ID with multiple fallbacks
+const getUserId = () => {
+  try {
+    // Primary: Telegram WebApp user ID
+    if (tg?.initDataUnsafe?.user?.id) {
+      return tg.initDataUnsafe.user.id;
+    }
+    
+    // Fallback: Check URL parameters
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const userId = urlParams.get('user_id') || urlParams.get('userId');
+      if (userId) return parseInt(userId);
+    }
+    
+    // Demo mode: Use a demo user ID for testing
+    console.warn('No Telegram user ID found, using demo mode');
+    return 12345678; // Demo user ID
+  } catch (e) {
+    console.error('Error getting user ID:', e);
+    return 12345678; // Demo fallback
+  }
+};
+
+// Get user data with fallbacks
+const getUserData = () => {
+  const userId = getUserId();
+  return {
+    id: userId,
+    username: tg?.initDataUnsafe?.user?.username || 'demo_user',
+    first_name: tg?.initDataUnsafe?.user?.first_name || 'Demo',
+    last_name: tg?.initDataUnsafe?.user?.last_name || 'User'
+  };
+};
 
 // === THEME ===
 const ACCENT = "#C6FF3E";
@@ -166,13 +224,8 @@ function HomeScreen() {
   const loadData = async () => {
     try {
       setError('');
-      const userId = tg?.initDataUnsafe?.user?.id;
-      if (!userId) {
-        console.warn('No Telegram user ID available, using demo data');
-        setClaimStatus({ canClaim: true, nextDay: 1, alreadyClaimed: false });
-        setUserStats({ balance: 0, total_earned: 0 });
-        return;
-      }
+      const userId = getUserId();
+      console.log('Loading data for user:', userId);
 
       const [status, stats] = await Promise.all([
         db.getDailyClaimStatus(userId),
@@ -196,11 +249,8 @@ function HomeScreen() {
     setError('');
     
     try {
-      const userId = tg?.initDataUnsafe?.user?.id;
-      if (!userId) {
-        setError('No Telegram user ID available');
-        return;
-      }
+      const userId = getUserId();
+      console.log('Claiming reward for user:', userId);
 
       const result = await db.claimDailyReward(userId);
       await loadData(); // Refresh data
@@ -288,78 +338,8 @@ function EarnScreen() {
   const loadTasks = async () => {
     try {
       setError('');
-      const userId = tg?.initDataUnsafe?.user?.id;
-      if (!userId) {
-        console.warn('No Telegram user ID available, loading demo tasks');
-        // Load demo tasks when no user ID
-        setTasks([
-          {
-            id: 'demo-ads-1',
-            title: 'Watch Advertisement #1',
-            type: 'ads',
-            url: 'https://otieu.com/4/9907519',
-            reward: 0.002,
-            icon_bg: '#C6FF3E',
-            icon_color: '#0C0F14'
-          },
-          {
-            id: 'demo-ads-2',
-            title: 'Watch Advertisement #2',
-            type: 'ads',
-            url: 'https://otieu.com/4/9907513',
-            reward: 0.002,
-            icon_bg: '#C6FF3E',
-            icon_color: '#0C0F14'
-          },
-          {
-            id: 'demo-twitter',
-            title: 'Follow us on Twitter',
-            type: 'follow',
-            url: 'https://otieu.com/4/9907519',
-            reward: 0.005,
-            icon_bg: '#1DA1F2',
-            icon_color: '#FFFFFF'
-          },
-          {
-            id: 'demo-binance',
-            title: 'Register on Binance',
-            type: 'partner',
-            url: 'https://accounts.bmwweb.biz/register?ref=535958866',
-            reward: 0.01,
-            icon_bg: '#F3BA2F',
-            icon_color: '#000000'
-          },
-          {
-            id: 'demo-kucoin',
-            title: 'Register on KuCoin',
-            type: 'partner',
-            url: 'https://www.kucoin.com/r/rf/QBSTDC9A',
-            reward: 0.01,
-            icon_bg: '#20D4A7',
-            icon_color: '#FFFFFF'
-          },
-          {
-            id: 'demo-tiktok',
-            title: 'Follow us on TikTok',
-            type: 'partner',
-            url: 'https://vt.tiktok.com/ZSHn3Hvmpk6a8-IMDAm/',
-            reward: 0.008,
-            icon_bg: '#FF0050',
-            icon_color: '#FFFFFF'
-          },
-          {
-            id: 'demo-telegram',
-            title: 'Join Telegram Channel',
-            type: 'partner',
-            url: 'https://t.me/instanmoneyairdrop',
-            reward: 0.005,
-            icon_bg: '#0088CC',
-            icon_color: '#FFFFFF'
-          }
-        ]);
-        setCompletedTasks([]);
-        return;
-      }
+      const userId = getUserId();
+      console.log('Loading tasks for user:', userId);
 
       const [allTasks, userCompletions] = await Promise.all([
         db.getTasks(),
@@ -383,11 +363,8 @@ function EarnScreen() {
     setError('');
     
     try {
-      const userId = tg?.initDataUnsafe?.user?.id;
-      if (!userId) {
-        setError('No Telegram user ID available');
-        return;
-      }
+      const userId = getUserId();
+      console.log('Processing task for user:', userId);
 
       if (sheet.step === "join") {
         // Open the task URL
