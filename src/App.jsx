@@ -165,7 +165,10 @@ function HomeScreen() {
   const loadData = async () => {
     try {
       const userId = tg?.initDataUnsafe?.user?.id;
-      if (!userId) return;
+      if (!userId) {
+        console.warn('No Telegram user ID available');
+        return;
+      }
 
       const [status, stats] = await Promise.all([
         db.getDailyClaimStatus(userId),
@@ -185,19 +188,21 @@ function HomeScreen() {
     
     try {
       const userId = tg?.initDataUnsafe?.user?.id;
-      if (!userId) throw new Error('No user ID');
+      if (!userId) {
+        throw new Error('No Telegram user ID available');
+      }
 
       const result = await db.claimDailyReward(userId);
       await loadData(); // Refresh data
       
       // Show success message
       if (tg?.showAlert) {
-        tg.showAlert(`Claimed ${result.amount} USDT for day ${result.day}!`);
+        tg.showAlert(`✅ Claimed ${result.amount} USDT for day ${result.day}!`);
       }
     } catch (error) {
       console.error('Claim failed:', error);
       if (tg?.showAlert) {
-        tg.showAlert('Claim failed: ' + error.message);
+        tg.showAlert('❌ Claim failed: ' + error.message);
       }
     } finally {
       setBusy(false);
@@ -265,7 +270,10 @@ function EarnScreen() {
   const loadTasks = async () => {
     try {
       const userId = tg?.initDataUnsafe?.user?.id;
-      if (!userId) return;
+      if (!userId) {
+        console.warn('No Telegram user ID available');
+        return;
+      }
 
       const [allTasks, userCompletions] = await Promise.all([
         db.getTasks(),
@@ -288,7 +296,9 @@ function EarnScreen() {
     
     try {
       const userId = tg?.initDataUnsafe?.user?.id;
-      if (!userId) throw new Error('No user ID');
+      if (!userId) {
+        throw new Error('No Telegram user ID available');
+      }
 
       if (sheet.step === "join") {
         // Open the task URL
@@ -302,7 +312,7 @@ function EarnScreen() {
         const result = await db.completeTask(userId, sheet.kind);
         
         if (tg?.showAlert) {
-          tg.showAlert(`Task completed! Earned ${result.reward} USDT`);
+          tg.showAlert(`✅ Task completed! Earned ${result.reward} USDT`);
         }
         
         await loadTasks(); // Refresh tasks
@@ -311,7 +321,7 @@ function EarnScreen() {
     } catch (e) {
       console.error('Task error:', e);
       if (tg?.showAlert) {
-        tg.showAlert('Error: ' + e.message);
+        tg.showAlert('❌ Error: ' + e.message);
       }
     } finally {
       setLoading(false);
@@ -434,7 +444,10 @@ function FriendsScreen() {
   const loadUserStats = async () => {
     try {
       const userId = tg?.initDataUnsafe?.user?.id;
-      if (!userId) return;
+      if (!userId) {
+        console.warn('No Telegram user ID available');
+        return;
+      }
 
       const stats = await db.getUserStats(userId);
       setUserStats(stats);
@@ -530,7 +543,10 @@ function WalletScreen() {
   const loadUserStats = async () => {
     try {
       const userId = tg?.initDataUnsafe?.user?.id;
-      if (!userId) return;
+      if (!userId) {
+        console.warn('No Telegram user ID available');
+        return;
+      }
 
       const stats = await db.getUserStats(userId);
       setUserStats(stats);
@@ -551,7 +567,9 @@ function WalletScreen() {
 
     try {
       const userId = tg?.initDataUnsafe?.user?.id;
-      if (!userId) throw new Error('No user ID');
+      if (!userId) {
+        throw new Error('No Telegram user ID available');
+      }
 
       const withdrawal = await db.createWithdrawal(
         userId,
@@ -562,7 +580,7 @@ function WalletScreen() {
       );
 
       if (tg?.showAlert) {
-        tg.showAlert(`Withdrawal request submitted! ID: ${withdrawal.id.slice(0, 8)}`);
+        tg.showAlert(`✅ Withdrawal request submitted! ID: ${withdrawal.id.slice(0, 8)}`);
       }
 
       // Reset form
@@ -575,7 +593,7 @@ function WalletScreen() {
     } catch (error) {
       console.error('Withdrawal failed:', error);
       if (tg?.showAlert) {
-        tg.showAlert('Withdrawal failed: ' + error.message);
+        tg.showAlert('❌ Withdrawal failed: ' + error.message);
       }
     } finally {
       setLoading(false);
@@ -800,7 +818,12 @@ export default function App() {
         // Process referral if present
         const startParam = wa.initDataUnsafe.start_param;
         if (startParam && startParam.startsWith('REF')) {
-          await db.processReferral(telegramUser.id, startParam);
+          try {
+            await db.processReferral(telegramUser.id, startParam);
+            console.log('Referral processed:', startParam);
+          } catch (error) {
+            console.error('Failed to process referral:', error);
+          }
         }
       }
     } catch {}
