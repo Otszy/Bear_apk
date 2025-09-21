@@ -6,7 +6,7 @@ const BOT_TOKEN =
   process.env.TELEGRAM_BOT_TOKEN ||
   process.env.BOT_TOKEN;
 
-// -------- helpers --------
+// ---------- helpers ----------
 function pickHeader(req, key) {
   const get = req.headers?.get?.bind(req.headers);
   return get ? get(key) : req.headers[key];
@@ -23,30 +23,23 @@ function pickQuery(req) {
   } catch { return ''; }
 }
 
-// -------- AUTH: verify Telegram initData --------
+// ---------- AUTH: verify Telegram initData ----------
 export function ensureTgUser(req) {
-  // 1) header
+  // 1) dari header
   let initData =
     pickHeader(req, 'x-telegram-init') ||
     pickHeader(req, 'x-telegram-init-data') ||
     pickHeader(req, 'x-tg-init-data');
 
-  // 2) body
+  // 2) fallback body
   if (!initData && req.body && typeof req.body.initData === 'string') {
     initData = req.body.initData;
   }
 
-  // 3) query
+  // 3) fallback query
   if (!initData) initData = pickQuery(req);
 
-  // (opsional) bypass signature untuk debug
-  if (process.env.TG_DISABLE_SIGNATURE === 'true') {
-    const p = new URLSearchParams(initData || '');
-    const userRaw = p.get('user');
-    const user = userRaw ? JSON.parse(userRaw) : { id: 0 };
-    return { user };
-  }
-
+  // TIDAK ADA BYPASS LAGI: kalau mau debug, tetap butuh user.id valid
   return verifyInitData(initData);
 }
 
@@ -72,26 +65,33 @@ function verifyInitData(initData) {
     throw Object.assign(new Error('initdata_expired'), { status: 401 });
   }
 
+  // user wajib ada & id wajib integer > 0
   const userRaw = params.get('user');
-  const user = userRaw ? JSON.parse(userRaw) : null;
-  if (!user?.id) throw Object.assign(new Error('no_user_in_initdata'), { status: 401 });
-  return { user };
+  let user = null;
+  try { user = userRaw ? JSON.parse(userRaw) : null; } catch {}
+  const uid = Number(user?.id);
+  if (!Number.isInteger(uid) || uid <= 0) {
+    throw Object.assign(new Error('invalid_user_id'), { status: 401 });
+  }
+  return { user: { ...user, id: uid } };
 }
 
-// -------- MEMBERSHIP: cek join channel --------
-// Disarankan pakai ID: TG_CHANNEL_ID = -100xxxxxxxxxx
+// ---------- MEMBERSHIP ----------
 const OK = new Set(['member', 'administrator', 'creator']);
 
 async function tgGetMember(chat, userId) {
-  const url = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${encodeURIComponent(chat)}&user_id=${userId}`;
+  const uid = Number(userId);
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${encodeURIComponent(chat)}&user_id=${uid}`;
   const r = await fetch(url);
   const data = await r.json().catch(() => ({}));
   return data;
 }
 
-/** Cek membership; prioritas ID, fallback username/URL kalau ada */
+/** Cek member channel; prioritas TG_CHANNEL_ID */
 export async function checkMembership(userId) {
   if (!BOT_TOKEN) return { isMember: false, reason: 'missing_bot_token' };
+  const uid = Number(userId);
+  if (!Number.isInteger(uid) || uid <= 0) return { isMember: false, reason: 'invalid_user_id' };
 
   let chat = null;
   if (process.env.TG_CHANNEL_ID) chat = process.env.TG_CHANNEL_ID; // -100...
@@ -102,12 +102,11 @@ export async function checkMembership(userId) {
   }
   if (!chat) return { isMember: false, reason: 'no_chat_config' };
 
-  const data = await tgGetMember(chat, userId);
+  const data = await tgGetMember(chat, uid);
   if (!data?.ok) return { isMember: false, chat, reason: data?.description || 'tg_api_not_ok' };
 
   const res = data.result || {};
   const s = res.status;
-
   if (OK.has(s)) return { isMember: true, status: s, chat };
   if (s === 'restricted' && res.is_member === true) {
     return { isMember: true, status: 'restricted(is_member=true)', chat };
