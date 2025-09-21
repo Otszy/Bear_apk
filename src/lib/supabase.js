@@ -179,83 +179,10 @@ export const db = {
   // Tasks
   async getTasks() {
     if (!supabase) {
-      console.warn('Database not available, returning demo tasks');
-      return [
-        {
-          id: 'demo-ads-1',
-          title: 'Watch Advertisement #1',
-          type: 'ads',
-          url: 'https://otieu.com/4/9907519',
-          reward: 0.002,
-          icon_bg: '#C6FF3E',
-          icon_color: '#0C0F14',
-          max_completions: null
-        },
-        {
-          id: 'demo-ads-2',
-          title: 'Watch Advertisement #2',
-          type: 'ads',
-          url: 'https://otieu.com/4/9907513',
-          reward: 0.002,
-          icon_bg: '#C6FF3E',
-          icon_color: '#0C0F14',
-          max_completions: null
-        },
-        {
-          id: 'demo-twitter',
-          title: 'Follow us on Twitter',
-          type: 'follow',
-          url: 'https://otieu.com/4/9907519',
-          reward: 0.005,
-          icon_bg: '#1DA1F2',
-          icon_color: '#FFFFFF',
-          max_completions: 1
-        },
-        {
-          id: 'demo-binance',
-          title: 'Register on Binance',
-          type: 'partner',
-          url: 'https://accounts.bmwweb.biz/register?ref=535958866',
-          reward: 0.01,
-          icon_bg: '#F3BA2F',
-          icon_color: '#000000',
-          max_completions: 1
-        },
-        {
-          id: 'demo-kucoin',
-          title: 'Register on KuCoin',
-          type: 'partner',
-          url: 'https://www.kucoin.com/r/rf/QBSTDC9A',
-          reward: 0.01,
-          icon_bg: '#20D4A7',
-          icon_color: '#FFFFFF',
-          max_completions: 1
-        },
-        {
-          id: 'demo-tiktok',
-          title: 'Follow us on TikTok',
-          type: 'partner',
-          url: 'https://vt.tiktok.com/ZSHn3Hvmpk6a8-IMDAm/',
-          reward: 0.008,
-          icon_bg: '#FF0050',
-          icon_color: '#FFFFFF',
-          max_completions: 1
-        },
-        {
-          id: 'demo-telegram',
-          title: 'Join Telegram Channel',
-          type: 'partner',
-          url: 'https://t.me/instanmoneyairdrop',
-          reward: 0.005,
-          icon_bg: '#0088CC',
-          icon_color: '#FFFFFF',
-          max_completions: 1
-        }
-      ];
+      return []
     }
 
     try {
-      console.log('Loading tasks from database');
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
@@ -464,10 +391,17 @@ export const db = {
 
   async getUserStats(userId) {
     if (!supabase) {
-      return { balance: 0, total_earned: 0, referral_code: 'DEMO', referralCount: 0 }
+      console.warn('Database not available, returning demo stats');
+      return { 
+        balance: 0.012, 
+        total_earned: 0.012, 
+        referral_code: 'DEMO123', 
+        referralCount: 0 
+      };
     }
 
     try {
+      console.log('Getting user stats for:', userId);
       const { data: user } = await supabase
         .from('users')
         .select('balance, total_earned, referral_code')
