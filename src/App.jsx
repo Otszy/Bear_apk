@@ -620,11 +620,8 @@ function WalletScreen() {
 
   const loadUserStats = async () => {
     try {
-      const userId = tg?.initDataUnsafe?.user?.id;
-      if (!userId) {
-        console.warn('No Telegram user ID available');
-        return;
-      }
+      const userId = getUserId();
+      console.log('Loading wallet stats for user:', userId);
 
       const stats = await db.getUserStats(userId);
       setUserStats(stats);
@@ -644,10 +641,8 @@ function WalletScreen() {
     setLoading(true);
 
     try {
-      const userId = tg?.initDataUnsafe?.user?.id;
-      if (!userId) {
-        throw new Error('No Telegram user ID available');
-      }
+      const userId = getUserId();
+      console.log('Creating withdrawal for user:', userId);
 
       const withdrawal = await db.createWithdrawal(
         userId,
